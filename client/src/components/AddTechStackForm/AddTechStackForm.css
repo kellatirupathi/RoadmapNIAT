@@ -1,0 +1,255 @@
+.add-tech-stack-form-card {
+  border: none;
+  border-radius: 15px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+  margin-bottom: 30px;
+}
+
+.add-tech-stack-form-card .card-header {
+  background-color: #ffffff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  padding: 1.25rem;
+}
+
+.add-tech-stack-form-card .card-header h3 {
+  font-weight: 700;
+  color: #333;
+  font-size: 1.6rem;
+}
+
+/* Custom Nav Tabs */
+.nav-tabs-custom {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.nav-tabs-custom .nav-link {
+  color: #495057;
+  font-weight: 500;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-right: 0.5rem;
+  background-color: transparent;
+  transition: all 0.2s ease;
+}
+
+.nav-tabs-custom .nav-link:hover {
+  color: #4b6cb7;
+  border-bottom-color: rgba(75, 108, 183, 0.3);
+}
+
+.nav-tabs-custom .nav-link.active {
+  color: #4b6cb7;
+  background-color: transparent;
+  border-bottom-color: #4b6cb7;
+}
+
+
+.section-header h4 {
+  font-weight: 600;
+  color: #333;
+}
+
+.roadmap-item-form {
+  background-color: #f9f9f9;
+  border-radius: 12px;
+  padding: 0.25rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s ease;
+}
+
+.roadmap-item-form:hover {
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
+}
+
+.item-header h5 {
+  font-weight: 600;
+  color: #333;
+}
+
+.add-item-btn, .remove-item-btn {
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+}
+
+.input-list {
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.remove-btn {
+  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.add-link-btn {
+  padding: 0;
+  color: #4b6cb7;
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.add-link-btn:hover {
+  color: #385998;
+  text-decoration: underline;
+}
+
+.status-select {
+  background-color: #fff;
+  border-radius: 6px;
+}
+
+.create-btn {
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+/* CSV Upload Styling */
+.csv-upload-container {
+  padding: 1rem 0;
+}
+
+.csv-instructions {
+  margin-bottom: 2rem;
+}
+
+.csv-instructions h4 {
+  font-weight: 600;
+  color: #333;
+}
+
+.sample-btn {
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+}
+
+.instruction-card {
+  background-color: #f8f9fa;
+  border-radius: 10px;
+  padding: 1.25rem;
+  border-left: 4px solid #4b6cb7;
+}
+
+.csv-upload-zone {
+  border: 2px dashed #ced4da;
+  border-radius: 10px;
+  padding: 2rem;
+  background-color: #f8f9fa;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.csv-upload-zone:hover, .csv-upload-zone.drag-active {
+  border-color: #4b6cb7;
+  background-color: rgba(75, 108, 183, 0.05);
+}
+
+.upload-icon {
+  font-size: 3rem;
+  color: #4b6cb7;
+  margin-bottom: 1rem;
+}
+
+.browse-link {
+  font-weight: 600;
+  padding: 0 0.25rem;
+}
+
+.selected-file {
+  display: inline-block;
+  background-color: rgba(75, 108, 183, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  color: #4b6cb7;
+  font-weight: 500;
+}
+
+/* Preview Tables */
+.preview-table-wrapper {
+  max-height: 400px;
+  overflow-y: auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.preview-table {
+  margin-bottom: 0;
+}
+
+.preview-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #f2f2f2;
+  font-weight: 600;
+  color: #333;
+}
+
+.preview-note {
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  text-align: right;
+}
+
+.csv-preview, .parsed-data-preview {
+  margin-bottom: 2rem;
+}
+
+.csv-preview h5, .parsed-data-preview h5 {
+  font-weight: 600;
+  color: #333;
+}
+
+/* Enhanced styling for line-break cells */
+.preview-table td {
+  white-space: pre-line;
+  vertical-align: top;
+}
+
+/* Badge styles for status */
+.badge {
+  padding: 0.5rem 0.75rem;
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+.bg-success {
+  background-color: #28a745 !important;
+}
+
+.bg-warning {
+  background-color: #ffc107 !important;
+  color: #212529 !important;
+}
+
+.bg-secondary {
+  background-color: #6c757d !important;
+}
+
+/* Responsive Styles */
+@media (max-width: 767.98px) {
+  .add-tech-stack-form-card .card-header h3 {
+    font-size: 1.4rem;
+  }
+  
+  .nav-tabs-custom .nav-link {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+  }
+  
+  .csv-upload-zone {
+    padding: 1.5rem;
+  }
+}

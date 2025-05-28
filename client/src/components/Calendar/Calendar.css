@@ -1,0 +1,66 @@
+/* client/src/components/Calendar/Calendar.css */
+
+.calendar-widget .current-day-highlight {
+    background-color: #10b981; /* Green circle */
+    border-radius: 50%;
+    color: white !important; /* Ensure text inside is white */
+  }
+  
+  .calendar-widget .event-dot {
+    position: absolute;
+    bottom: 2px; /* Adjust position as needed */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 5px; /* Size of the dot */
+    height: 5px;
+    background-color: #dc2626; /* Red dot */
+    border-radius: 50%;
+  }
+  
+  .calendar-tooltip {
+    position: fixed; /* Use fixed to position relative to viewport */
+    background-color: rgba(243, 244, 246, 0.95); /* Light gray, slightly transparent */
+    color: #1f2937; /* Dark text */
+    padding: 6px 10px;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 1000; /* Ensure it's on top */
+    font-size: 0.75rem; /* Small text */
+    white-space: normal;
+    max-width: 200px; /* Limit width */
+    border: 1px solid #e5e7eb;
+    backdrop-filter: blur(2px);
+    pointer-events: none; /* So it doesn't interfere with mouse events on dates */
+    transform-origin: top center; /* For animations if added */
+    line-height: 1.3;
+  }
+  
+  .calendar-tooltip p {
+      margin-bottom: 2px;
+  }
+  
+  .calendar-tooltip p:last-child {
+      margin-bottom: 0;
+  }
+  
+  /* Navigation button hover effects */
+  .calendar-widget button {
+    outline: none;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  
+  .calendar-widget button:focus {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+  }
+  
+  /* Today button styling */
+  .calendar-widget button:hover {
+    transform: translateY(-1px);
+  }
+  
+  /* Smooth transitions for all interactive elements */
+  .calendar-widget * {
+    transition: all 0.2s ease-in-out;
+  }
