@@ -1,14 +1,229 @@
 /* client/src/components/Sidebar/Sidebar.css */
+
+/* Custom scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
   }
+  
   .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
   }
+  
   .custom-scrollbar::-webkit-scrollbar-thumb {
     background: #4b5563; /* gray-600 */
     border-radius: 3px;
   }
+  
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #6b7280; /* gray-500 */
+  }
+  
+  /* Smooth transitions for sidebar width changes */
+  .sidebar-transition {
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Tooltip styles for collapsed sidebar icons */
+  .tooltip {
+    position: relative;
+  }
+  
+  .tooltip::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+    z-index: 1000;
+    margin-left: 0.5rem;
+  }
+  
+  .tooltip::after {
+    content: '';
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 5px solid transparent;
+    border-right-color: rgba(0, 0, 0, 0.9);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+    z-index: 1000;
+    margin-left: 0.25rem;
+  }
+  
+  @media (min-width: 1024px) {
+    .tooltip:hover::before,
+    .tooltip:hover::after {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+  
+  /* Enhanced hover effects for navigation items */
+  .nav-item {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .nav-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: left 0.5s;
+  }
+  
+  .nav-item:hover::before {
+    left: 100%;
+  }
+  
+  /* Pulse animation for the collapse button */
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+  
+  .collapse-btn:hover {
+    animation: pulse 2s infinite;
+  }
+  
+  /* Smooth icon rotation */
+  .rotate-icon {
+    transition: transform 0.3s ease-in-out;
+  }
+  
+  /* Enhanced shadow for collapsed sidebar */
+  .sidebar-collapsed {
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Stagger animation for navigation items when expanding */
+  .nav-item-stagger {
+    animation: slideInLeft 0.3s ease-out forwards;
+  }
+  
+  @keyframes slideInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  /* Apply stagger delay to each nav item */
+  .nav-item:nth-child(1) { animation-delay: 0.1s; }
+  .nav-item:nth-child(2) { animation-delay: 0.15s; }
+  .nav-item:nth-child(3) { animation-delay: 0.2s; }
+  .nav-item:nth-child(4) { animation-delay: 0.25s; }
+  .nav-item:nth-child(5) { animation-delay: 0.3s; }
+  .nav-item:nth-child(6) { animation-delay: 0.35s; }
+  .nav-item:nth-child(7) { animation-delay: 0.4s; }
+  
+  /* Improved focus styles for accessibility */
+  .focus-ring:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+  
+  /* Backdrop blur effect when sidebar is hovered in collapsed state */
+  .sidebar-backdrop {
+    backdrop-filter: blur(10px);
+    background: rgba(17, 24, 39, 0.95);
+  }
+  
+  /* Enhanced active indicator */
+  .active-indicator {
+    background: linear-gradient(180deg, #ffffff 0%, #e5e7eb 100%);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+  }
+  
+  /* Smooth calendar slide in/out */
+  .calendar-container {
+    transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+    overflow: hidden;
+  }
+  
+  .calendar-hidden {
+    max-height: 0;
+    opacity: 0;
+  }
+  
+  .calendar-visible {
+    max-height: 400px;
+    opacity: 1;
+  }
+  
+  /* Loading spinner enhancement */
+  .loading-spinner {
+    background: conic-gradient(from 0deg, transparent, #6b7280, transparent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  /* Responsive improvements */
+  @media (max-width: 1023px) {
+    .sidebar-mobile {
+      width: 100vw;
+      max-width: 16rem;
+    }
+  }
+  
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #000000;
+    }
+    
+    .nav-item:hover {
+      background: #000000;
+      color: #ffffff;
+    }
+  }
+  
+  /* Reduce motion for users who prefer it */
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar-transition,
+    .rotate-icon,
+    .nav-item::before,
+    .calendar-container {
+      transition: none;
+    }
+    
+    .nav-item-stagger {
+      animation: none;
+    }
+    
+    .loading-spinner {
+      animation: none;
+    }
   }

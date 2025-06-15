@@ -178,7 +178,6 @@ const AddTechStackForm = ({ onTechStackAdded }) => {
       
       const response = await createTechStack(dataWithHeaders);
       setLoading(false);
-      setSuccess('Tech stack created successfully!');
       
       // Reset form
       setFormData({

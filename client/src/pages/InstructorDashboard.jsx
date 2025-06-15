@@ -1,6 +1,6 @@
 // client/src/pages/InstructorDashboard.jsx
-import React, { useState, useEffect, forwardRef } from 'react';
-import { Card, Button, Table, Badge, Form, Spinner, Alert, Dropdown, InputGroup, Modal } from 'react-bootstrap';
+import React, { useState, useEffect, forwardRef, useCallback } from 'react';
+import { Card, Button, Table, Badge, Form, Spinner, Alert, Dropdown, InputGroup, Modal, Row, Col } from 'react-bootstrap';
 import useAuth from '../hooks/useAuth';
 import statsService from '../services/statsService';
 import * as techStackService from '../services/techStackService'; 
@@ -48,13 +48,65 @@ const InstructorDashboard = ({ setPageLoading }) => {
   const [selectedItemForComment, setSelectedItemForComment] = useState(null);
   const [refreshCommentsTrigger, setRefreshCommentsTrigger] = useState(0);
   
+  const [todaySummary, setTodaySummary] = useState({
+    scheduledCount: 0,
+    completedToday: 0,
+    inProgressToday: 0,
+    yetToStartToday: 0,
+    itemsToday: [],
+  });
+
   const [updatingItems, setUpdatingItems] = useState([]); 
   const [expandedTopics, setExpandedTopics] = useState({});
 
   const dashboardDisplayName = user?.username ? `${user.username}'s` : user?.firstName ? `${user.firstName}'s` : "Instructor";
   const welcomeMessageName = user?.username || user?.firstName || 'Instructor';
 
-  const fetchInstructorData = async () => {
+
+  // New function to recalculate todaySummary
+  const recalculateTodaySummary = useCallback((currentItemsByTechStack) => {
+    let scheduledTodayCount = 0;
+    let completedTodayCount = 0;
+    let inProgressTodayCount = 0;
+    let yetToStartTodayCount = 0;
+    const itemsForTodayList = [];
+
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+
+    // Flatten items from all tech stacks
+    const allItems = Object.values(currentItemsByTechStack || {}).flat();
+
+    allItems.forEach(item => {
+        if (item.scheduledDate) {
+            const scheduledDateObj = new Date(item.scheduledDate);
+            const itemDateOnly = new Date(scheduledDateObj.getFullYear(), scheduledDateObj.getMonth(), scheduledDateObj.getDate());
+
+            if (itemDateOnly.getTime() === todayStart.getTime()) {
+                scheduledTodayCount++;
+                itemsForTodayList.push(item);
+                // Ensure item.status is used for the summary count
+                switch (item.status) { 
+                    case 'Completed': completedTodayCount++; break;
+                    case 'In Progress': inProgressTodayCount++; break;
+                    case 'Yet to Start': 
+                    default: 
+                        yetToStartTodayCount++; break;
+                }
+            }
+        }
+    });
+
+    setTodaySummary({
+        scheduledCount: scheduledTodayCount,
+        completedToday: completedTodayCount,
+        inProgressToday: inProgressTodayCount,
+        yetToStartToday: yetToStartTodayCount,
+        itemsToday: itemsForTodayList.sort((a, b) => (a.topic || "").localeCompare(b.topic || "")), // Sort for consistent display
+    });
+  }, []); 
+
+  const fetchInstructorData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -78,6 +130,7 @@ const InstructorDashboard = ({ setPageLoading }) => {
               }
               itemsGrouped[item.techStackId].push({
                 ...item, 
+                status: statusGroup._id, 
                 commentCount: item.commentCount !== undefined ? item.commentCount : 0 
               }); 
             });
@@ -86,10 +139,13 @@ const InstructorDashboard = ({ setPageLoading }) => {
           }
         });
         
-        setTimelineData({ techStacks: assignedTechStacks, itemsByTechStack: itemsGrouped });
+        const newTimelineDataState = { techStacks: assignedTechStacks, itemsByTechStack: itemsGrouped };
+        setTimelineData(newTimelineDataState);
+        recalculateTodaySummary(newTimelineDataState.itemsByTechStack);
 
       } else {
         setTimelineData({ techStacks: [], itemsByTechStack: {} });
+        recalculateTodaySummary({}); 
         console.warn("Timeline data from backend is not in the expected format or is empty. Response:", response);
       }
       
@@ -106,12 +162,12 @@ const InstructorDashboard = ({ setPageLoading }) => {
       setLoading(false);
       if (setPageLoading) setPageLoading(false);
     }
-  };
+  }, [setPageLoading, recalculateTodaySummary]);
+
 
   useEffect(() => {
     fetchInstructorData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setPageLoading]); 
+  }, [fetchInstructorData]); 
 
   const handleStatusChange = async (itemToUpdate, newStatus) => {
     try {
@@ -122,11 +178,21 @@ const InstructorDashboard = ({ setPageLoading }) => {
         completionStatus: newStatus
       });
 
-      fetchInstructorData();
+      const newLocalTimelineData = { ...timelineData };
+      if (newLocalTimelineData.itemsByTechStack[itemToUpdate.techStackId]) {
+        newLocalTimelineData.itemsByTechStack[itemToUpdate.techStackId] = 
+          newLocalTimelineData.itemsByTechStack[itemToUpdate.techStackId].map(item =>
+            item.itemId === itemToUpdate.itemId ? { ...item, status: newStatus } : item 
+          );
+      }
+      setTimelineData(newLocalTimelineData);
+      recalculateTodaySummary(newLocalTimelineData.itemsByTechStack); 
 
+      
     } catch (err) {
       console.error('Error updating status:', err);
-      setError('Failed to update status. ' + (err.response?.data?.error || err.message));
+      const errorMessage = err.response?.data?.error || 'Failed to update status.';
+      setError(errorMessage);
     } finally {
       setUpdatingItems(prev => prev.filter(id => id !== itemToUpdate.itemId));
     }
@@ -148,21 +214,17 @@ const InstructorDashboard = ({ setPageLoading }) => {
         scheduledDate: newDateString,
       });
   
-      // ✅ Optimistically update local state (without re-fetch)
-      setTimelineData((prevData) => {
-        const updatedItems = prevData.itemsByTechStack[itemToUpdate.techStackId].map((item) =>
-          item.itemId === itemToUpdate.itemId ? { ...item, scheduledDate: newDateString } : item
-        );
-  
-        return {
-          ...prevData,
-          itemsByTechStack: {
-            ...prevData.itemsByTechStack,
-            [itemToUpdate.techStackId]: updatedItems,
-          },
-        };
-      });
-  
+      const newLocalTimelineData = { ...timelineData };
+      if (newLocalTimelineData.itemsByTechStack[itemToUpdate.techStackId]) {
+          newLocalTimelineData.itemsByTechStack[itemToUpdate.techStackId] = 
+              newLocalTimelineData.itemsByTechStack[itemToUpdate.techStackId].map(item =>
+                  item.itemId === itemToUpdate.itemId ? { ...item, scheduledDate: newDateString } : item
+              );
+      }
+      setTimelineData(newLocalTimelineData);
+      recalculateTodaySummary(newLocalTimelineData.itemsByTechStack);
+
+
     } catch (err) {
       console.error('Error updating scheduled date:', err);
       setError('Failed to update scheduled date. ' + (err.response?.data?.error || err.message));
@@ -184,7 +246,19 @@ const InstructorDashboard = ({ setPageLoading }) => {
   
   const handleCommentAddedInModal = () => {
     setRefreshCommentsTrigger(prev => prev + 1); 
-    fetchInstructorData(); 
+    if(selectedItemForComment){
+      const newLocalTimelineData = { ...timelineData };
+      if (newLocalTimelineData.itemsByTechStack[selectedItemForComment.techStackId]) {
+        newLocalTimelineData.itemsByTechStack[selectedItemForComment.techStackId] = 
+          newLocalTimelineData.itemsByTechStack[selectedItemForComment.techStackId].map(item =>
+            item.itemId === selectedItemForComment.itemId ? { ...item, commentCount: (item.commentCount || 0) + 1 } : item 
+          );
+        setTimelineData(newLocalTimelineData);
+        // Note: Comment count doesn't directly affect today's *task status* summary,
+        // but recalculateTodaySummary could be called if other fields were influenced.
+        // recalculateTodaySummary(newLocalTimelineData.itemsByTechStack); 
+      }
+    }
   };
 
   const getStatusBadgeColor = (status) => {
@@ -222,8 +296,81 @@ const InstructorDashboard = ({ setPageLoading }) => {
           {success}
         </Alert>
       )}
+
+      {/* Today's Focus Summary Section - REDESIGNED */}
+      <Card className="mb-4 border-0 shadow-sm">
+        <Card.Header className="bg-white py-3">
+          <h5 className="mb-0 fw-medium"><i className="fas fa-calendar-day me-2 text-primary"></i>Today's Focus</h5>
+        </Card.Header>
+        <Card.Body>
+          {(loading && !todaySummary.itemsToday.length) ? ( 
+            <div className="text-center"><Spinner size="sm" /> Loading today's summary...</div>
+          ) : (
+            <>
+              <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+                <div className="mb-2 mb-md-0">
+                  <h5 className="mb-0 text-primary fw-semibold">
+                    <i className="fas fa-calendar-check me-2"></i>
+                    {todaySummary.scheduledCount} Task{todaySummary.scheduledCount !== 1 ? 's' : ''} Scheduled
+                  </h5>
+                  <p className="mb-0 text-muted small">
+                    For {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                  </p>
+                </div>
+                <div className="d-flex gap-2 flex-wrap justify-content-center justify-content-md-end">
+                  <div className="text-center px-2 py-1 rounded bg-success-subtle" style={{minWidth: '60px'}}>
+                    <h6 className="mb-0 fw-bold text-success small">{todaySummary.completedToday}</h6>
+                    <small className="text-success" style={{ fontSize: '0.6rem' }}>DONE</small>
+                  </div>
+                  <div className="text-center px-2 py-1 rounded bg-warning-subtle" style={{minWidth: '60px'}}>
+                    <h6 className="mb-0 fw-bold text-warning small">{todaySummary.inProgressToday}</h6>
+                    <small className="text-warning" style={{ fontSize: '0.6rem' }}>WIP</small>
+                  </div>
+                  <div className="text-center px-2 py-1 rounded bg-danger-subtle" style={{minWidth: '60px'}}>
+                    <h6 className="mb-0 fw-bold text-danger small">{todaySummary.yetToStartToday}</h6>
+                    <small className="text-danger" style={{ fontSize: '0.6rem' }}>PENDING</small>
+                  </div>
+                </div>
+              </div>
+
+              {todaySummary.itemsToday.length > 0 ? (
+                <div>
+                  <h6 className="mb-2 small text-muted text-uppercase fw-medium">Key Tasks Today:</h6>
+                  <ul className="list-unstyled mb-0 small today-tasks-list">
+                    {todaySummary.itemsToday
+                      .filter(item => item.status === 'In Progress' || item.status === 'Yet to Start')
+                      .slice(0, 3) 
+                      .map(item => (
+                        <li key={`today-${item.itemId}`} className="mb-1 d-flex justify-content-between align-items-center py-1 px-2 rounded hover-bg-light today-task-item">
+                          <div className="text-truncate me-2" title={`${item.topic} (${item.techStackName})`}>
+                            <i className={`fas fa-xs me-2 text-${getStatusBadgeColor(item.status)} fa-${item.status === 'In Progress' ? 'spinner fa-spin' : 'hourglass-half'}`}></i>
+                            {item.topic} <span className="text-muted-light small">({item.techStackName})</span>
+                          </div>
+                          <Badge pill bg={getStatusBadgeColor(item.status)} className="status-badge-custom-sm">{item.status}</Badge>
+                        </li>
+                    ))}
+                    {todaySummary.itemsToday.filter(item => item.status === 'In Progress' || item.status === 'Yet to Start').length === 0 && todaySummary.completedToday > 0 && (
+                         <li className="text-muted text-center py-2 small"><i className="fas fa-check-circle text-success me-1"></i>All today's tasks are marked complete!</li>
+                    )}
+                     {todaySummary.itemsToday.filter(item => item.status === 'In Progress' || item.status === 'Yet to Start').length > 3 && (
+                        <li className="text-muted small text-center mt-1 pt-1 border-top">
+                            ...and {todaySummary.itemsToday.filter(item => item.status === 'In Progress' || item.status === 'Yet to Start').length - 3} more pending/WIP tasks.
+                        </li>
+                    )}
+                     {todaySummary.itemsToday.filter(item => item.status === 'In Progress' || item.status === 'Yet to Start').length === 0 && todaySummary.completedToday === 0 && (
+                         <li className="text-muted text-center py-2 small">No active tasks for today currently.</li>
+                     )}
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-muted mb-0 text-center py-3"><i className="fas fa-calendar-times fa-lg text-muted me-2"></i>No tasks found scheduled for today.</p>
+              )}
+            </>
+          )}
+        </Card.Body>
+      </Card>
       
-      {loading ? (
+      {loading && timelineData.techStacks.length === 0 ? ( 
         <div className="text-center py-5">
           <Spinner animation="border" role="status" variant="primary" style={{width: '3rem', height: '3rem'}}>
             <span className="visually-hidden">Loading...</span>
@@ -267,9 +414,12 @@ const InstructorDashboard = ({ setPageLoading }) => {
                       <tbody>
                         {itemsForThisStack
                           .sort((a, b) => { 
-                              const statusPriority = { 'Completed': 0, 'Yet to Start': 1, 'In Progress': 2 };
-                              if (a.status && b.status && statusPriority[a.status] !== statusPriority[b.status]) {
-                                  return statusPriority[a.status] - statusPriority[b.status];
+                              const statusPriority = { 'Completed': 2, 'Yet to Start': 1, 'In Progress': 0 }; // WIP tasks on top after sorting by topic
+                              // Sort by status first, then topic within that status
+                              const priorityA = statusPriority[a.status] ?? 3;
+                              const priorityB = statusPriority[b.status] ?? 3;
+                              if (priorityA !== priorityB) {
+                                  return priorityA - priorityB;
                               }
                               return (a.topic || "").localeCompare(b.topic || "");
                           })
@@ -279,7 +429,7 @@ const InstructorDashboard = ({ setPageLoading }) => {
                               <React.Fragment key={item.itemId}>
                                 <tr className={`main-topic-row status-row-${item.status?.toLowerCase().replace(/\s+/g, '-')}`}>
                                   <td className="topic-details-cell">
-                                    <div className="d-flex align-items-center h-100"> {/* Cell content wrapper */}
+                                    <div className="d-flex align-items-center h-100"> 
                                       <Button 
                                         variant="link" 
                                         size="sm" 
@@ -294,7 +444,7 @@ const InstructorDashboard = ({ setPageLoading }) => {
                                     </div>
                                   </td>
                                   <td className="text-center scheduled-date-cell">
-                                    <div className="d-flex align-items-center justify-content-center h-100"> {/* Cell content wrapper */}
+                                    <div className="d-flex align-items-center justify-content-center h-100"> 
                                       <DatePicker
                                         selected={item.scheduledDate ? new Date(item.scheduledDate) : null}
                                         onChange={(date) => handleScheduledDateChange(item, date)}
@@ -303,7 +453,7 @@ const InstructorDashboard = ({ setPageLoading }) => {
                                             hasDateValue={!!item.scheduledDate}
                                             placeholderText="Set Date"
                                             onClear={(e) => {
-                                              e.stopPropagation(); // Prevent datepicker from opening
+                                              e.stopPropagation(); 
                                               handleScheduledDateChange(item, null);
                                             }}
                                             disabled={updatingItems.includes(item.itemId)}
@@ -314,14 +464,14 @@ const InstructorDashboard = ({ setPageLoading }) => {
                                         disabled={updatingItems.includes(item.itemId)}
                                         autoComplete="off"
                                         wrapperClassName="d-inline-block"
-                                        popperProps={{ // Added this prop
+                                        popperProps={{ 
                                           strategy: 'fixed',
                                         }}
                                       />
                                     </div>
                                   </td>
                                   <td className="text-center">
-                                    <div className="d-flex align-items-center justify-content-center h-100"> {/* Cell content wrapper */}
+                                    <div className="d-flex align-items-center justify-content-center h-100"> 
                                       <Badge 
                                         bg={getStatusBadgeColor(item.status)}
                                         className="status-badge-custom"
@@ -331,7 +481,7 @@ const InstructorDashboard = ({ setPageLoading }) => {
                                     </div>
                                   </td>
                                   <td className="text-center">
-                                    <div className="d-flex align-items-center justify-content-center h-100 gap-2"> {/* Cell content wrapper */}
+                                    <div className="d-flex align-items-center justify-content-center h-100 gap-2"> 
                                       <Dropdown>
                                         <Dropdown.Toggle 
                                           variant="outline-primary" 
@@ -681,7 +831,24 @@ const InstructorDashboard = ({ setPageLoading }) => {
         .react-datepicker__day--disabled:hover { background-color: #f8f9fa !important; transform: none; }
         .react-datepicker__input-container > div { width: 100%; } 
         .react-datepicker-wrapper { width: 100%; /* Allow datepicker to fill the td */ }
+        
+        /* For Today's Focus Compact Display */
+        .bg-success-subtle { background-color: rgba(40, 167, 69, 0.1) !important; }
+        .bg-warning-subtle { background-color: rgba(255, 193, 7, 0.1) !important; }
+        .bg-danger-subtle { background-color: rgba(220, 53, 69, 0.1) !important; }
+        .text-muted-light { color: #86909c; }
+        .today-tasks-list { max-height: 100px; overflow-y: auto; }
+        .today-task-item .fas { font-size: 0.7em; opacity: 0.8;}
+        .status-badge-custom-sm {
+            font-size: 0.65rem !important; 
+            padding: 0.25em 0.5em !important; 
+            line-height: 0.9;
+        }
 
+        .hover-bg-light:hover {
+            background-color: #f8f9fa; /* Bootstrap bg-light color */
+            border-radius: 0.25rem;
+        }
         /* --- End Instructor Dashboard Styles --- */
       `}</style>
     </div>

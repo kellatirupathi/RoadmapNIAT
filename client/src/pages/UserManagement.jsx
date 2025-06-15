@@ -82,7 +82,6 @@ const UserManagement = () => {
     try {
       await userService.createUser(newUser);
       await fetchUsers();
-      setSuccess('User created successfully!');
       setShowAddUserModal(false);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create user');
@@ -121,7 +120,6 @@ const UserManagement = () => {
         assignedTechStacks: role === 'instructor' ? assignedTechStacks : []
       });
       await fetchUsers();
-      setSuccess('User updated successfully!');
       setShowEditUserModal(false);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to update user');
@@ -153,7 +151,6 @@ const UserManagement = () => {
     try {
       await userService.resetUserPassword(selectedUser._id, { newPassword: resetPassword.newPassword });
       setShowResetPasswordModal(false);
-      setSuccess('Password reset successfully!');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to reset password');
     } finally {
@@ -173,7 +170,6 @@ const UserManagement = () => {
     try {
       await userService.deleteUser(selectedUser._id);
       await fetchUsers();
-      setSuccess('User deleted successfully!');
       setShowDeleteUserModal(false);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to delete user');
@@ -188,7 +184,6 @@ const UserManagement = () => {
     try {
       await userService.updateUser(userToToggle._id, { isActive: !userToToggle.isActive });
       await fetchUsers();
-      setSuccess(`User ${!userToToggle.isActive ? 'activated' : 'deactivated'} successfully!`);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to update user status');
     } finally {
@@ -231,7 +226,7 @@ const UserManagement = () => {
   };
 
   return (
-    <div className="container-fluid p-3 p-md-4 user-management-page">
+    <div className="">
       <Row className="mb-4 align-items-center">
         <Col>
           <h1 className="h3 mb-0">User Management</h1>

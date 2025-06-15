@@ -122,7 +122,6 @@ const RoadmapsManagement = ({ setPageLoading }) => {
     try {
       setActionLoading(true);
       await roadmapService.deleteRoadmap(roadmapToDelete._id);
-      setSuccess('Roadmap deleted successfully!');
       fetchRoadmapsData();
       setShowDeleteModal(false);
       setRoadmapToDelete(null);
@@ -341,7 +340,7 @@ const RoadmapsManagement = ({ setPageLoading }) => {
   });
 
   return (
-    <div className="container-fluid p-3 p-md-4 roadmaps-management-page">
+    <div className="">
       <Row className="mb-4 align-items-center">
         <Col>
           <h1 className="h3 mb-0">Roadmaps Management</h1>

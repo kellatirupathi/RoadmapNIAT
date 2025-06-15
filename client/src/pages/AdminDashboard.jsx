@@ -201,10 +201,9 @@ const AdminDashboard = ({ setPageLoading }) => {
 
 
   return (
-    <div className="admin-dashboard p-3">
+    <div className="">
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
         <div className="welcome-section">
-          <h1 className="h4 fw-bold mb-1">Admin Dashboard</h1>
           <p className="text-muted mb-0">
             <i className="fas fa-user-circle me-2"></i>
             Welcome back, {user?.firstName || user?.username || 'Admin'}

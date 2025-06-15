@@ -180,7 +180,6 @@ const TechStackTable = ({ techStackData, onUpdate, onDelete, userRole }) => { //
       setNameEditMode(false);
       setHeadersEditMode(false);
       setShowAddForm(false);
-      setSuccess('Changes saved successfully!');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError('Failed to save changes');

@@ -18,6 +18,7 @@ import NotAuthorized from './pages/NotAuthorized';
 // Admin Pages
 import UserManagement from './pages/UserManagement';
 import AdminDashboard from './pages/AdminDashboard';
+import InternshipsTracker from './pages/InternshipsTracker';
 
 // Content Team Pages
 import ContentDashboard from './pages/ContentDashboard';
@@ -107,6 +108,13 @@ const AppRoutes = () => {
               <Route path="/profile" element={
                 <ProtectedRoute 
                   element={<ProfileSettings setPageLoading={setPageLoading} />} 
+                />
+              } />
+
+              <Route path="/internships-tracker" element={
+                <ProtectedRoute
+                    element={<InternshipsTracker />}
+                    requiredRoles={['admin', 'manager']}
                 />
               } />
               

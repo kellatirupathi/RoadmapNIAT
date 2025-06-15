@@ -17,7 +17,8 @@ import userRoutes from './routes/userRoutes.js';
 import statsRoutes from './routes/statsRoutes.js';
 import commentRoutes from './routes/commentRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
-import activityLogRoutes from './routes/activityLogRoutes.js'; // ** THIS LINE WAS ADDED **
+import activityLogRoutes from './routes/activityLogRoutes.js';
+import internshipsTrackerRoutes from './routes/internshipsTrackerRoutes.js';
 
 // Import middleware
 import errorHandler from './middleware/errorHandler.js';
@@ -88,13 +89,6 @@ mongoose.connect(process.env.MONGO_URI)
 .catch((err) => console.log('❌ MongoDB Connection Error:', err));
 
 // --- Cron Jobs ---
-// Existing scheduler for socket notifications (if it's for that purpose)
-// Ensure it runs if still needed, or adjust/remove.
-// cron.schedule('0 7 * * *', () => { 
-//   console.log('Running scheduled task for socket notifications...');
-//   runDailySocketTaskReminderScheduler(io, activeUsers); // Pass io and activeUsers if this scheduler sends socket messages
-// });
-
 cron.schedule('0 8 * * *', () => { // Run daily at 8:00 AM server time
   console.log('Kicking off daily email task reminder job...');
   runDailyEmailTaskReminderScheduler();
@@ -109,7 +103,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/activitylogs', activityLogRoutes); // ** THIS LINE WAS ADDED **
+app.use('/api/activitylogs', activityLogRoutes);
+app.use('/api/internships', internshipsTrackerRoutes);
 
 // Root Route
 app.get('/', (req, res) => {

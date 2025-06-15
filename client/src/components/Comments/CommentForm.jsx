@@ -36,7 +36,6 @@ const CommentForm = ({ techStackId, itemId, onCommentAdded }) => {
       
       setCommentText('');
       setIsPrivate(false); // Reset private checkbox
-      setSuccess('Comment added successfully!');
       
       // Clear success message after a few seconds
       setTimeout(() => setSuccess(null), 3000);

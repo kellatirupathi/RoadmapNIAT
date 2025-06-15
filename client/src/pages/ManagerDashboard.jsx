@@ -197,7 +197,7 @@ const ManagerDashboard = ({ setPageLoading }) => {
 
 
   return (
-    <div className="manager-dashboard p-3">
+    <div className="">
       <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap">
         <div>
           <h1 className="h4 fw-bold mb-1">{dashboardDisplayName} Dashboard</h1>

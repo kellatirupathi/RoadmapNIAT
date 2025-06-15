@@ -1,0 +1,127 @@
+/* client/src/components/EditableTable/EditableTable.css */
+
+/* Container to scope the styles */
+.editable-table-container .table {
+    margin-bottom: 0;
+    font-size: 0.82rem; /* REDUCED: Slightly smaller font for more compact rows */
+}
+
+.editable-table-container .table th, 
+.editable-table-container .table td {
+    padding: 0.4rem 0.5rem; /* REDUCED: Vertical padding is the main controller for row height */
+    vertical-align: middle;
+    border: 1px solid #dee2e6;
+}
+
+.editable-table-container .table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    white-space: nowrap;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.editable-table-container .group-header-row + tr th {
+    top: 2.5rem; /* ADJUSTED: To match new header row height */
+}
+
+/* Row for adding new items */
+.editable-table-container .add-row-form td {
+    background-color: #f8faff;
+    padding: 0.25rem 0.5rem; /* REDUCED: Padding for the 'add' row */
+    vertical-align: middle;
+}
+
+/* Height of input fields inside the 'add' row */
+.editable-table-container .add-row-form .form-control-sm {
+    font-size: 0.8rem;
+    height: 28px; /* REDUCED: To fit into the shorter row */
+}
+.editable-table-container .add-row-form .react-datepicker-wrapper .form-control-sm {
+    height: 28px; /* REDUCED: To fit into the shorter row */
+}
+
+.editable-table-container .actions-column {
+    width: 100px;
+    min-width: 100px;
+    text-align: center;
+    position: sticky;
+    right: 0;
+    background-color: #fff;
+    z-index: 2;
+}
+
+/* Base style for a grouped header cell */
+.editable-table-container .group-header-row .group-header-cell,
+.editable-table-container .group-header-row .group-header-critical {
+    text-align: center;
+    font-weight: bold;
+    padding: 0.5rem 0.5rem; /* REDUCED: Header padding for a shorter header row */
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+/* Style for the "Assessments" group (blue) */
+.editable-table-container .group-header-row .group-header-cell {
+    background-color: #e3f2fd; /* Light blue */
+    border-bottom: 2px solid #1976d2; /* Darker blue border */
+    color: #1565c0;
+}
+
+/* Style for the "Critical Points" group (yellow) */
+.editable-table-container .group-header-row .group-header-critical {
+    background-color: #fff3cd; /* Light Yellow */
+    border-bottom: 2px solid #ffc107; /* Darker Yellow */
+    color: #664d03; /* Dark Yellow text */
+}
+
+#datepicker-portal .react-datepicker-popper {
+    z-index: 9999 !important;
+}
+
+.editable-table-container tbody tr:hover {
+    background-color: #f1f5f9;
+}
+
+.editable-table-container td[data-field="roadmapLink"],
+.editable-table-container th[data-field="roadmapLink"] {
+    min-width: 250px; /* Make the column wider */
+}
+
+.editable-table-container td[data-field="roadmapLink"] {
+    word-break: break-all; /* Ensure long URLs wrap correctly without breaking the layout */
+    white-space: normal; /* Override any potential nowrap styles that might affect wrapping */
+}
+
+/* Tech Stack Roadmaps Sheet Column Widths */
+.editable-table-container th[data-field="instructors"],
+.editable-table-container td[data-field="instructors"] {
+    min-width: 200px;
+}
+
+/* Companywise - Students Progress Sheet Column Widths */
+.editable-table-container th[data-field="roleName"],
+.editable-table-container td[data-field="roleName"] {
+    min-width: 180px;
+}
+.editable-table-container th[data-field="niatId"],
+.editable-table-container td[data-field="niatId"] {
+    min-width: 120px;
+}
+.editable-table-container th[data-field="studentName"],
+.editable-table-container td[data-field="studentName"] {
+    min-width: 180px;
+}
+/* For dynamically generated techstack name columns */
+.editable-table-container [data-field^="techStack"][data-field$="Name"] {
+    min-width: 150px;
+}
+
+/* Critical Points Sheet Column Widths */
+.editable-table-container th[data-field="role"],
+.editable-table-container td[data-field="role"] {
+    min-width: 180px;
+}

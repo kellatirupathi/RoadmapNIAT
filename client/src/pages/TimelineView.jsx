@@ -1,5 +1,5 @@
 // client/src/pages/TimelineView.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react'; // Added useMemo
 import { Card, Button, Form, Table, Badge, Spinner, Alert, Dropdown, InputGroup, Modal, Row, Col } from 'react-bootstrap';
 import { Link } from 'react-router-dom'; // For linking Tech Stack names if needed
 import useAuth from '../hooks/useAuth';
@@ -26,6 +26,9 @@ const TimelineView = ({ setPageLoading }) => {
   const [refreshCommentsTrigger, setRefreshCommentsTrigger] = useState(0); // For CommentList refresh
   
   const [updatingItems, setUpdatingItems] = useState([]);
+
+  // State for sorting functionality
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'none' });
 
   const fetchTimelineData = async () => {
     try {
@@ -128,37 +131,105 @@ const TimelineView = ({ setPageLoading }) => {
     } catch (e) { return "Invalid Date"; }
   };
 
-  const filteredItems = timelineItems.filter(item => {
-    const searchMatch = 
-      searchTerm === '' || 
-      (item.topic && item.topic.toLowerCase().includes(searchTerm.toLowerCase())) || 
-      (item.techStackName && item.techStackName.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const statusMatch = 
-      filterStatus === 'all' || 
-      item.status === filterStatus; // Backend status is now in item.status via grouping _id
-    
-    const techStackMatch = 
-      filterTechStack === 'all' || 
-      item.techStackId === filterTechStack;
-    
-    return searchMatch && statusMatch && techStackMatch;
-  }).sort((a, b) => {
-      const statusPriority = { 'Completed': 0, 'Yet to Start': 1, 'In Progress': 2 };
-      // Compare by status priority
-      if (a.status && b.status && statusPriority[a.status] !== statusPriority[b.status]) {
-        return statusPriority[a.status] - statusPriority[b.status];
-      }
-      // Then by tech stack name
-      if ((a.techStackName || "").localeCompare(b.techStackName || "") !== 0) {
-        return (a.techStackName || "").localeCompare(b.techStackName || "");
-      }
-      // Then by topic
-      return (a.topic || "").localeCompare(b.topic || "");
-  });
+  // Filtering Logic
+  const filteredItems = useMemo(() => {
+    return timelineItems.filter(item => {
+      const searchMatch = 
+        searchTerm === '' || 
+        (item.topic && item.topic.toLowerCase().includes(searchTerm.toLowerCase())) || 
+        (item.techStackName && item.techStackName.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const statusMatch = 
+        filterStatus === 'all' || 
+        item.status === filterStatus;
+      
+      const techStackMatch = 
+        filterTechStack === 'all' || 
+        item.techStackId === filterTechStack;
+      
+      return searchMatch && statusMatch && techStackMatch;
+    });
+  }, [timelineItems, searchTerm, filterStatus, filterTechStack]);
 
+
+  // Sorting Request Handler (Tri-state logic)
+  const requestSort = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    } else if (sortConfig.key === key && sortConfig.direction === 'descending') {
+      direction = 'none';
+      key = null; // Reset to default order
+    }
+    setSortConfig({ key, direction });
+  };
+  
+  // Sorting and Filtering Combined Logic
+  const sortedAndFilteredItems = useMemo(() => {
+    let sortableItems = [...filteredItems];
+
+    if (sortConfig.direction === 'none' || !sortConfig.key) {
+      // Default sort logic
+      return sortableItems.sort((a, b) => {
+          const statusPriority = { 'Completed': 2, 'In Progress': 0, 'Yet to Start': 1 };
+          const priorityA = statusPriority[a.status] ?? 3;
+          const priorityB = statusPriority[b.status] ?? 3;
+          if (priorityA !== priorityB) return priorityA - priorityB;
+          if ((a.techStackName || "").localeCompare(b.techStackName || "") !== 0) return (a.techStackName || "").localeCompare(b.techStackName || "");
+          return (a.topic || "").localeCompare(b.topic || "");
+      });
+    }
+    
+    // Custom sort logic
+    sortableItems.sort((a, b) => {
+      let aValue = a[sortConfig.key];
+      let bValue = b[sortConfig.key];
+      
+      // Handle null/undefined to sort at the bottom
+      if (aValue == null || aValue === '') aValue = Infinity;
+      if (bValue == null || bValue === '') bValue = Infinity;
+
+      // Type-specific comparison
+      if (sortConfig.key === 'scheduledDate') {
+          aValue = a.scheduledDate ? new Date(a.scheduledDate).getTime() : Infinity;
+          bValue = b.scheduledDate ? new Date(b.scheduledDate).getTime() : Infinity;
+      } else if (sortConfig.key === 'status') {
+          const priority = { 'Completed': 2, 'In Progress': 1, 'Yet to Start': 0 };
+          aValue = priority[a.status] ?? -1;
+          bValue = priority[b.status] ?? -1;
+      }
+      
+      if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+      return 0;
+    });
+
+    return sortableItems;
+  }, [filteredItems, sortConfig]);
+
+  // Helper component to render sortable table headers
+  const SortableHeader = ({ columnKey, title }) => {
+    const isSorted = sortConfig.key === columnKey;
+    const isAscending = isSorted && sortConfig.direction === 'ascending';
+    const isDescending = isSorted && sortConfig.direction === 'descending';
+    
+    return (
+      <th 
+        onClick={() => requestSort(columnKey)} 
+        style={{ cursor: 'pointer' }}
+        className="sortable-header"
+      >
+        {title}
+        <span className="ms-2">
+          {isAscending && <i className="fas fa-arrow-up"></i>}
+          {isDescending && <i className="fas fa-arrow-down"></i>}
+        </span>
+      </th>
+    );
+  };
+  
   return (
-    <div className="timeline-view p-3 p-md-4">
+    <div className="">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h1 className="h3 mb-0 fw-bold">Roadmap Timeline</h1>
@@ -245,7 +316,7 @@ const TimelineView = ({ setPageLoading }) => {
         <Card.Header className="bg-white py-3 d-flex justify-content-between align-items-center">
           <h5 className="mb-0">Timeline Items</h5>
           <div className="d-flex align-items-center">
-            <Badge bg="primary" pill className="me-2">{filteredItems.length}</Badge>
+            <Badge bg="primary" pill className="me-2">{sortedAndFilteredItems.length}</Badge>
             <span className="text-muted small">
               {filterStatus !== 'all' || filterTechStack !== 'all' || searchTerm ? 'Filtered' : 'Total'}
             </span>
@@ -257,20 +328,20 @@ const TimelineView = ({ setPageLoading }) => {
               <Spinner animation="border" role="status" variant="primary"><span className="visually-hidden">Loading...</span></Spinner>
               <p className="mt-3 text-muted">Loading timeline data...</p>
             </div>
-          ) : filteredItems.length > 0 ? (
+          ) : sortedAndFilteredItems.length > 0 ? (
             <div className="table-responsive">
               <Table hover className="align-middle m-0">
                 <thead className="bg-light">
                   <tr>
-                    <th style={{width: '20%'}}>Tech Stack</th>
-                    <th style={{width: '30%'}}>Topic</th>
-                    <th style={{width: '15%'}}>Scheduled Date</th>
-                    <th style={{width: '15%'}}>Status</th>
+                    <SortableHeader columnKey="techStackName" title="Tech Stack" />
+                    <SortableHeader columnKey="topic" title="Topic" />
+                    <SortableHeader columnKey="scheduledDate" title="Scheduled Date" />
+                    <SortableHeader columnKey="status" title="Status" />
                     <th style={{width: '20%', textAlign: 'center'}}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredItems.map((item) => (
+                  {sortedAndFilteredItems.map((item) => (
                     <tr key={item.itemId || item.topic} className={`status-row-${item.status.toLowerCase().replace(/\s+/g, '-')}`}>
                       <td>
                         <span className="fw-medium">
@@ -352,7 +423,7 @@ const TimelineView = ({ setPageLoading }) => {
             </div>
           )}
         </Card.Body>
-         {!loading && filteredItems.length === 0 && (searchTerm || filterStatus !== 'all' || filterTechStack !== 'all') && (
+         {!loading && sortedAndFilteredItems.length === 0 && (searchTerm || filterStatus !== 'all' || filterTechStack !== 'all') && (
             <Card.Footer className="text-center bg-light py-2">
                 <Button 
                     variant="outline-secondary"
@@ -438,6 +509,7 @@ const TimelineView = ({ setPageLoading }) => {
         .badge-sm-custom { font-size: 0.65rem; padding: .2em .45em; line-height: 1; }
         .table td, .table th { vertical-align: middle; }
         .timeline-action-btn { min-width: 0px; }
+        .sortable-header { -webkit-user-select: none; user-select: none; }
       `}</style>
     </div>
   );
