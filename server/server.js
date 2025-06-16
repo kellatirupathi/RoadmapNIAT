@@ -4,9 +4,10 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import morgan from 'morgan';
-import http from 'http'; // Required for socket.io
+import http from 'http';
 import cron from 'node-cron';
-import { Server as SocketIOServer } from 'socket.io'; // socket.io server
+import { Server as SocketIOServer } from 'socket.io';
+import serverless from 'serverless-http'; // For future Lambda deployment
 
 // Import routes
 import techStackRoutes from './routes/techStackRoutes.js';
@@ -22,27 +23,31 @@ import internshipsTrackerRoutes from './routes/internshipsTrackerRoutes.js';
 
 // Import middleware
 import errorHandler from './middleware/errorHandler.js';
-import { runDailyTaskReminderScheduler as runDailySocketTaskReminderScheduler, runDailyEmailTaskReminderScheduler } from './utils/scheduler.js';
+import { runDailyTaskReminderScheduler, runDailyEmailTaskReminderScheduler } from './utils/scheduler.js';
 
 // Load environment variables
 dotenv.config();
-console.log("MONGO_URI Check:", process.env.MONGO_URI); // <-- ADD THIS LINE
+console.log("MONGO_URI Check:", process.env.MONGO_URI);
 
 // Initialize app and HTTP server
 const app = express();
-const server = http.createServer(app); // Create HTTP server for Express and Socket.IO
+const server = http.createServer(app);
 
-// --- Socket.IO Setup ---
+// --- CORS Configuration ---
+// Setup CORS to use the CLIENT_URL from your environment variables.
+// Fallback to localhost for local development.
+const corsOptions = {
+    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    credentials: true, // This is important for cookies, auth headers, etc.
+};
+app.use(cors(corsOptions)); // Use the cors middleware with options.
+
+// --- Socket.IO Setup with correct CORS ---
 const io = new SocketIOServer(server, {
-  cors: {
-    origin: "http://localhost:3000", // Client's URL
-    methods: ["GET", "POST"],
-    credentials: true
-  }
+  cors: corsOptions // Reuse the same CORS options for Socket.IO
 });
 
 // Simple in-memory store for connected users (maps userId to socket.id)
-// For production, consider a more robust solution like Redis
 const activeUsers = new Map();
 
 io.on('connection', (socket) => {
@@ -52,14 +57,11 @@ io.on('connection', (socket) => {
     if (userId) {
       activeUsers.set(userId, socket.id);
       console.log(`🧑 User ${userId} registered with socket ${socket.id}. Active users: ${activeUsers.size}`);
-      // Optionally, join a room based on user ID or role
-      // socket.join(userId);
     }
   });
 
   socket.on('disconnect', () => {
     console.log(`🔌 Socket disconnected: ${socket.id}`);
-    // Remove user from activeUsers map
     for (const [userId, sId] of activeUsers.entries()) {
       if (sId === socket.id) {
         activeUsers.delete(userId);
@@ -72,7 +74,6 @@ io.on('connection', (socket) => {
 // --- End Socket.IO Setup ---
 
 // Middlewares
-app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
 
@@ -89,7 +90,8 @@ mongoose.connect(process.env.MONGO_URI)
 .catch((err) => console.log('❌ MongoDB Connection Error:', err));
 
 // --- Cron Jobs ---
-cron.schedule('0 8 * * *', () => { // Run daily at 8:00 AM server time
+// Runs every day at 8:00 AM server time for email reminders.
+cron.schedule('0 8 * * *', () => {
   console.log('Kicking off daily email task reminder job...');
   runDailyEmailTaskReminderScheduler();
 });
@@ -106,7 +108,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/activitylogs', activityLogRoutes);
 app.use('/api/internships', internshipsTrackerRoutes);
 
-// Root Route
+// Root Route for health checks
 app.get('/', (req, res) => {
   res.send('API is running...');
 });
@@ -114,8 +116,17 @@ app.get('/', (req, res) => {
 // Error handling middleware
 app.use(errorHandler);
 
-// Start Server using the HTTP server instance
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => { // Use server.listen() instead of app.listen()
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+// --- Server Startup Logic ---
+// This block is for platforms like Render (traditional servers).
+if (process.env.NODE_ENV !== 'lambda') { // Check an env variable to decide how to start
+    const PORT = process.env.PORT || 5000;
+    server.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+}
+
+// --- Lambda Handler Export ---
+// This block is for serverless environments like AWS Lambda.
+// The 'serverless-http' library wraps the express app.
+// To use this, you would set NODE_ENV=lambda in your Lambda environment variables.
+export const handler = serverless(app);
