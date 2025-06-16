@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Backend for Tech Stack Roadmap Manager",
   "type": "module",
+  "engines": { // <-- ADD THIS BLOCK
+    "node": "18.x"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
