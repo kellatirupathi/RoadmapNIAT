@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Backend for Tech Stack Roadmap Manager",
   "type": "module",
-  "engines": { // <-- ADD THIS BLOCK
+  "engines": {
     "node": "18.x"
   },
   "scripts": {
