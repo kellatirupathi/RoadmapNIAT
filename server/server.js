@@ -83,7 +83,7 @@ mongoose.connect(process.env.MONGO_URI)
 .catch((err) => console.log('❌ MongoDB Connection Error:', err));
 
 // --- Cron Job for Email Reminders ---
-cron.schedule('0 8 * * *', () => { // Run daily at 8:00 AM server time
+cron.schedule('9 13 * * *', () => { // Run daily at 8:00 AM server time
   console.log('Kicking off daily email task reminder job...');
   runDailyEmailTaskReminderScheduler();
 });
