@@ -77,28 +77,41 @@ const TimelineView = ({ setPageLoading }) => {
   }, [setPageLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStatusChange = async (itemToUpdate, newStatus) => {
-    try {
-      setUpdatingItems(prev => [...prev, itemToUpdate.itemId]);
-      setError(null); setSuccess(null);
+    // Keep track of the original items to revert on error
+    const originalTimelineItems = [...timelineItems];
+    
+    // Optimistically update the UI
+    setTimelineItems(prevItems =>
+      prevItems.map(item =>
+        item.itemId === itemToUpdate.itemId
+          ? { ...item, status: newStatus }
+          : item
+      )
+    );
+    
+    setUpdatingItems(prev => [...prev, itemToUpdate.itemId]);
+    setError(null);
+    setSuccess(null);
 
+    try {
+      // Send the update to the server
       await techStackService.updateRoadmapItem(itemToUpdate.techStackId, itemToUpdate.itemId, {
         completionStatus: newStatus
       });
-
-      setSuccess(`Status updated to ${newStatus} for "${itemToUpdate.topic}"`);
+  
+      // On success, show a confirmation message
+      setSuccess(`Status updated to "${newStatus}" for "${itemToUpdate.topic}"`);
       setTimeout(() => setSuccess(null), 3000);
       
-      // Update local state directly to avoid full page reload
-      setTimelineItems(prevItems => 
-        prevItems.map(item =>
-          item.itemId === itemToUpdate.itemId ? { ...item, status: newStatus } : item
-        )
-      );
     } catch (err) {
       console.error('Error updating status:', err);
       const errorMessage = err.response?.data?.error || 'Failed to update status.';
       setError(errorMessage);
+      
+      // If the API call fails, revert the state to the original
+      setTimelineItems(originalTimelineItems);
     } finally {
+      // Remove the item from the updating list in both success and error cases
       setUpdatingItems(prev => prev.filter(id => id !== itemToUpdate.itemId));
     }
   };
