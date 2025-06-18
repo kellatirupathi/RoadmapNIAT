@@ -87,7 +87,13 @@ const TimelineView = ({ setPageLoading }) => {
 
       setSuccess(`Status updated to ${newStatus} for "${itemToUpdate.topic}"`);
       setTimeout(() => setSuccess(null), 3000);
-      fetchTimelineData(); // Re-fetch data to update view
+      
+      // Update local state directly to avoid full page reload
+      setTimelineItems(prevItems => 
+        prevItems.map(item =>
+          item.itemId === itemToUpdate.itemId ? { ...item, status: newStatus } : item
+        )
+      );
     } catch (err) {
       console.error('Error updating status:', err);
       const errorMessage = err.response?.data?.error || 'Failed to update status.';
