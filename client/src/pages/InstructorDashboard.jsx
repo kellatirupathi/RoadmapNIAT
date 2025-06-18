@@ -278,7 +278,7 @@ const InstructorDashboard = ({ setPageLoading }) => {
   };
 
   return (
-    <div className="instructor-dashboard p-3 p-md-4">
+    <div className="">
       <div className="mb-4">
         <h1 className="h3 mb-0 fw-bold">{dashboardDisplayName} Dashboard</h1>
         <p className="text-muted mb-0">Manage your assigned Tech Stacks and item progress. Welcome, {welcomeMessageName}!</p>
