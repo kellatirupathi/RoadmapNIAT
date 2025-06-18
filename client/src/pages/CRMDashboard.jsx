@@ -127,7 +127,7 @@ const CRMDashboard = ({ setPageLoading }) => {
   }
 
   return (
-    <div className="crm-dashboard p-3 p-md-4">
+    <div className="">
       <div className="mb-4">
         <h1 className="h3 mb-0">{dashboardDisplayName}'s Dashboard</h1>
         <p className="text-muted">View all published roadmaps</p>
