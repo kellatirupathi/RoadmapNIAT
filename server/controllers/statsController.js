@@ -225,10 +225,22 @@ export const getTechStackStats = async (req, res) => {
   export const getTimelineStats = async (req, res) => {
     try {
       let techStackFilter = {};
-      if (req.user.role === 'instructor' && req.user.assignedTechStacks && req.user.assignedTechStacks.length > 0) {
-        techStackFilter = { 
-          _id: { $in: req.user.assignedTechStacks.map(id => new mongoose.Types.ObjectId(id)) } 
-        };
+      // If the user is an instructor, we *only* want their assigned tech stacks.
+      if (req.user.role === 'instructor') {
+        // If they have assigned tech stacks, create the filter.
+        if (req.user.assignedTechStacks && req.user.assignedTechStacks.length > 0) {
+          techStackFilter = {
+            _id: { $in: req.user.assignedTechStacks.map(id => new mongoose.Types.ObjectId(id)) }
+          };
+        } else {
+          // If they are an instructor but have NO assigned stacks, they should see nothing.
+          return res.status(200).json({
+            success: true,
+            timelineStats: [],
+            techStackProgress: [],
+            recentComments: []
+          });
+        }
       }
 
       // Aggregate roadmap items by status for timeline view
