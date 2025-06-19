@@ -1,9 +1,9 @@
 // client/src/pages/InternshipsTracker.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Card, Nav, Spinner, Alert, Button, Modal, Table, Form, Row, Col, InputGroup, Dropdown, ProgressBar, Pagination } from 'react-bootstrap';
+import { Card, Nav, Spinner, Alert, Button, Modal, Table, Form, Row, Col, InputGroup, Dropdown, Pagination } from 'react-bootstrap';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
-import Papa from 'papaparse'; // Import PapaParse
+import Papa from 'papaparse';
 import internshipsTrackerService from '../services/internshipsTrackerService.js';
 import userService from '../services/userService.js';
 import * as techStackService from '../services/techStackService.js';
@@ -13,8 +13,7 @@ import TechStackDropdown from '../components/TechStackDropdown/TechStackDropdown
 import statsService from '../services/statsService.js';
 import useAuth from '../hooks/useAuth';
 
-
-// --- Column Definitions for sheets ---
+// Column Definitions
 const techStackRoadmapColumns = [
     { header: 'Tech Stack', field: 'techStack' }, { header: 'Tech Stack RP', field: 'techStackRp' }, { header: 'Instructors', field: 'instructors' }, { header: 'Roadmap', field: 'roadmapLink' }, { header: 'Techstack Deadline', field: 'deadline', type: 'date' }, { header: 'Techstack Progress', field: 'progress', type: 'number' }, { header: 'Version', field: 'version' }, { header: 'Version history remarks', field: 'versionRemarks' }, { header: '25% completion Assignment', field: 'assignment25', group: 'Assessments + Assignments + NXT' }, { header: '50% completion Assignment', field: 'assignment50', group: 'Assessments + Assignments + NXT' }, { header: '75% completion Assignment', field: 'assignment75', group: 'Assessments + Assignments + NXT' }, { header: '100% completion Assignment', field: 'assignment100', group: 'Assessments + Assignments + NXT' }, { header: 'Roadmap Approval from company (Before starting the training)', field: 'roadmapApproval', group: 'Critical Points' }, { header: 'Conducting Company Assignments (Ask for 2 assignments a month)', field: 'companyAssignments', group: 'Critical Points' }, { header: 'ASE Mock Interview (After 50% & 100%) completion', field: 'aseMockInterview', group: 'Critical Points' }, { header: 'External Mock Interview (After 100% completion)', field: 'externalMockInterview', group: 'Critical Points' },
 ];
@@ -35,6 +34,8 @@ const subsheetConfigs = {
     'student-wise-progress': { name: 'Student Wise Progress', columns: studentWiseProgressColumns },
     'critical-points': { name: 'Critical Points', columns: criticalPointsColumns }
 };
+
+// MODIFIED TechStackRoadmapForm
 const TechStackRoadmapForm = ({ onSave, onCancel, initialData, isLoading, techStackOptions, instructors: instructorOptions, techStackProgressData }) => {
     const [formData, setFormData] = useState(initialData || {
         techStack: '', techStackRp: '', instructors: [], roadmapLink: '',
@@ -42,6 +43,15 @@ const TechStackRoadmapForm = ({ onSave, onCancel, initialData, isLoading, techSt
         assignment25: '', assignment50: '', assignment75: '', assignment100: '',
         roadmapApproval: '', companyAssignments: '', aseMockInterview: '', externalMockInterview: ''
     });
+
+    useEffect(() => {
+        setFormData(initialData || {
+            techStack: '', techStackRp: '', instructors: [], roadmapLink: '',
+            deadline: null, progress: 0, version: 'V1', versionRemarks: '',
+            assignment25: '', assignment50: '', assignment75: '', assignment100: '',
+            roadmapApproval: '', companyAssignments: '', aseMockInterview: '', externalMockInterview: ''
+        });
+    }, [initialData]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -55,10 +65,10 @@ const TechStackRoadmapForm = ({ onSave, onCancel, initialData, isLoading, techSt
     const handleTechStackChange = (e) => {
         const { name, value } = e.target;
         const newFormData = { ...formData, [name]: value };
-
         const progressInfo = (techStackProgressData || []).find(p => p.name === value);
-        newFormData.progress = progressInfo ? Math.round(progressInfo.completionPercentage) : 0;
 
+        // Always update with automatic progress initially. User can then override it.
+        newFormData.progress = progressInfo ? Math.round(progressInfo.completionPercentage) : 0;
         setFormData(newFormData);
     };
 
@@ -71,14 +81,14 @@ const TechStackRoadmapForm = ({ onSave, onCancel, initialData, isLoading, techSt
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSave(formData);
+        onSave({...formData, progress: Number(formData.progress) || 0}); // Ensure progress is a number
     };
 
     return (
         <Form onSubmit={handleSubmit}>
             <Row className="mb-3">
                 <Col md={4}><Form.Group><Form.Label>Tech Stack</Form.Label><Form.Select name="techStack" value={formData.techStack} onChange={handleTechStackChange} required><option value="">Select Tech Stack</option>{(techStackOptions || []).map(ts => (<option key={ts._id} value={ts.name}>{ts.name}</option>))}</Form.Select></Form.Group></Col>
-                <Col md={4}><Form.Group><Form.Label>Tech Stack RP</Form.Label><Form.Control type="text" name="techStackRp" value={formData.techStackRp} onChange={handleChange} /></Form.Group></Col>
+                <Col md={4}><Form.Group><Form.Label>Tech Stack RP</Form.Label><Form.Control type="text" name="techStackRp" value={formData.techStackRp || ''} onChange={handleChange} /></Form.Group></Col>
                 <Col md={4}>
                     <Form.Group>
                         <Form.Label>Instructors</Form.Label>
@@ -107,31 +117,36 @@ const TechStackRoadmapForm = ({ onSave, onCancel, initialData, isLoading, techSt
                 </Col>
             </Row>
              <Row className="mb-3">
-                <Col md={6}><Form.Group><Form.Label>Roadmap Link</Form.Label><Form.Control type="url" name="roadmapLink" value={formData.roadmapLink} onChange={handleChange} /></Form.Group></Col>
+                <Col md={6}><Form.Group><Form.Label>Roadmap Link</Form.Label><Form.Control type="url" name="roadmapLink" value={formData.roadmapLink || ''} onChange={handleChange} /></Form.Group></Col>
                 <Col md={3}><Form.Group><Form.Label>Deadline</Form.Label><DatePicker selected={formData.deadline ? new Date(formData.deadline) : null} onChange={handleDateChange} className="form-control" placeholderText="Select Deadline" /></Form.Group></Col>
-                 <Col md={3}><Form.Group><Form.Label>Progress (%)</Form.Label><Form.Control type="number" name="progress" value={formData.progress} readOnly className="bg-light" /></Form.Group></Col>
+                 <Col md={3}>
+                     <Form.Group>
+                        <Form.Label>Progress (%)</Form.Label>
+                        <Form.Control type="number" name="progress" value={formData.progress} onChange={handleChange} min="0" max="100" placeholder="Manual override"/>
+                    </Form.Group>
+                </Col>
              </Row>
              <Row className="mb-3">
-                 <Col md={3}><Form.Group><Form.Label>Version</Form.Label><Form.Control type="text" name="version" value={formData.version} onChange={handleChange} /></Form.Group></Col>
-                <Col md={9}><Form.Group><Form.Label>Version Remarks</Form.Label><Form.Control as="textarea" rows={1} name="versionRemarks" value={formData.versionRemarks} onChange={handleChange} /></Form.Group></Col>
+                 <Col md={3}><Form.Group><Form.Label>Version</Form.Label><Form.Control type="text" name="version" value={formData.version || ''} onChange={handleChange} /></Form.Group></Col>
+                <Col md={9}><Form.Group><Form.Label>Version Remarks</Form.Label><Form.Control as="textarea" rows={1} name="versionRemarks" value={formData.versionRemarks || ''} onChange={handleChange} /></Form.Group></Col>
              </Row>
             <h6 className="mt-4">Assessments & Assignments + Nxtmock</h6>
             <hr className="mt-1 mb-3" />
             <Row className="mb-3">
-                <Col><Form.Group><Form.Label>25% completion</Form.Label><Form.Control type="text" name="assignment25" value={formData.assignment25} onChange={handleChange} /></Form.Group></Col>
-                <Col><Form.Group><Form.Label>50% completion</Form.Label><Form.Control type="text" name="assignment50" value={formData.assignment50} onChange={handleChange} /></Form.Group></Col>
-                <Col><Form.Group><Form.Label>75% completion</Form.Label><Form.Control type="text" name="assignment75" value={formData.assignment75} onChange={handleChange} /></Form.Group></Col>
-                <Col><Form.Group><Form.Label>100% completion</Form.Label><Form.Control type="text" name="assignment100" value={formData.assignment100} onChange={handleChange} /></Form.Group></Col>
+                <Col><Form.Group><Form.Label>25% completion</Form.Label><Form.Control type="text" name="assignment25" value={formData.assignment25 || ''} onChange={handleChange} /></Form.Group></Col>
+                <Col><Form.Group><Form.Label>50% completion</Form.Label><Form.Control type="text" name="assignment50" value={formData.assignment50 || ''} onChange={handleChange} /></Form.Group></Col>
+                <Col><Form.Group><Form.Label>75% completion</Form.Label><Form.Control type="text" name="assignment75" value={formData.assignment75 || ''} onChange={handleChange} /></Form.Group></Col>
+                <Col><Form.Group><Form.Label>100% completion</Form.Label><Form.Control type="text" name="assignment100" value={formData.assignment100 || ''} onChange={handleChange} /></Form.Group></Col>
             </Row>
             <h6 className="mt-4">Critical Points</h6>
             <hr className="mt-1 mb-3"/>
             <Row>
-                <Col md={6}><Form.Group className="mb-3"><Form.Label>Roadmap Approval from company (Before starting the training)</Form.Label><Form.Control type="text" name="roadmapApproval" value={formData.roadmapApproval} onChange={handleChange} /></Form.Group></Col>
-                <Col md={6}><Form.Group className="mb-3"><Form.Label>Conducting Company Assignments (Ask for 2 assignments a month)</Form.Label><Form.Control type="text" name="companyAssignments" value={formData.companyAssignments} onChange={handleChange} /></Form.Group></Col>
+                <Col md={6}><Form.Group className="mb-3"><Form.Label>Roadmap Approval from company (Before starting the training)</Form.Label><Form.Control type="text" name="roadmapApproval" value={formData.roadmapApproval || ''} onChange={handleChange} /></Form.Group></Col>
+                <Col md={6}><Form.Group className="mb-3"><Form.Label>Conducting Company Assignments (Ask for 2 assignments a month)</Form.Label><Form.Control type="text" name="companyAssignments" value={formData.companyAssignments || ''} onChange={handleChange} /></Form.Group></Col>
             </Row>
             <Row>
-                 <Col md={6}><Form.Group className="mb-3"><Form.Label>ASE Mock Interview (After 50% & 100%) completion</Form.Label><Form.Control type="text" name="aseMockInterview" value={formData.aseMockInterview} onChange={handleChange} /></Form.Group></Col>
-                <Col md={6}><Form.Group className="mb-3"><Form.Label>External Mock Interview (After 100% completion)</Form.Label><Form.Control type="text" name="externalMockInterview" value={formData.externalMockInterview} onChange={handleChange} /></Form.Group></Col>
+                 <Col md={6}><Form.Group className="mb-3"><Form.Label>ASE Mock Interview (After 50% & 100%) completion</Form.Label><Form.Control type="text" name="aseMockInterview" value={formData.aseMockInterview || ''} onChange={handleChange} /></Form.Group></Col>
+                <Col md={6}><Form.Group className="mb-3"><Form.Label>External Mock Interview (After 100% completion)</Form.Label><Form.Control type="text" name="externalMockInterview" value={formData.externalMockInterview || ''} onChange={handleChange} /></Form.Group></Col>
              </Row>
              <Modal.Footer className="px-0 pt-4">
                 <Button variant="secondary" onClick={onCancel} disabled={isLoading}>Cancel</Button>
@@ -142,6 +157,8 @@ const TechStackRoadmapForm = ({ onSave, onCancel, initialData, isLoading, techSt
         </Form>
     );
 };
+
+// MODIFIED InternshipMasterForm
 const InternshipMasterForm = ({ data, setData, techStackOptions, loading, techStackProgress }) => {
     
     const handleInputChange = (e) => {
@@ -156,19 +173,25 @@ const InternshipMasterForm = ({ data, setData, techStackOptions, loading, techSt
     const handleTechStackDropdownSelect = (selectedNames) => {
         setData(prev => {
             const newTechProgress = selectedNames.map(name => {
-                const existing = prev.techProgress.find(tp => tp.techStackName === name);
-                return existing || { techStackName: name };
+                const existing = (prev.techProgress || []).find(tp => tp.techStackName === name);
+                return existing || { techStackName: name, manualProgress: null };
             });
             return { ...prev, techProgress: newTechProgress };
         });
     };
     
-    const getProgressColorClass = (percentage) => {
-        if (percentage === 100) return 'text-success';
-        if (percentage <= 10) return 'text-danger';
-        return 'text-warning';
+    // NEW HANDLER for manual progress
+    const handleProgressChange = (techStackName, manualValue) => {
+        setData(prev => ({
+            ...prev,
+            techProgress: (prev.techProgress || []).map(tp => 
+                tp.techStackName === techStackName 
+                ? { ...tp, manualProgress: manualValue === '' ? null : Number(manualValue) } 
+                : tp
+            )
+        }));
     };
-
+    
     return (
         <Form>
             <Row className="g-3 mb-3">
@@ -203,18 +226,27 @@ const InternshipMasterForm = ({ data, setData, techStackOptions, loading, techSt
                         </Form.Group>
                     </Col>
                     <Col md={6}>
-                        {(data.techProgress || []).length > 0 && <Form.Label>Tech Stacks Progress</Form.Label>}
+                        {(data.techProgress || []).length > 0 && <Form.Label>Tech Stacks Progress (Editable)</Form.Label>}
                         <div style={{maxHeight: '130px', overflowY: 'auto'}} className="px-1">
                             {(data.techProgress || []).map((tp, index) => {
-                                const progressData = (techStackProgress || []).find(p => p.name === tp.techStackName);
-                                const progressPercentage = progressData ? Math.round(progressData.completionPercentage) : 0;
-                                const colorClass = getProgressColorClass(progressPercentage);
-
+                                const automaticProgressData = (techStackProgress || []).find(p => p.name === tp.techStackName);
+                                const automaticProgress = automaticProgressData ? Math.round(automaticProgressData.completionPercentage) : 0;
+                                const displayValue = tp.manualProgress !== null && tp.manualProgress !== undefined ? tp.manualProgress : automaticProgress;
+                                
                                 return (
                                     <div className="d-flex align-items-center mb-2" key={index}>
                                         <div className="fw-medium text-truncate me-2" style={{flex: '1 1 120px'}} title={tp.techStackName}>{tp.techStackName}</div>
-                                        <div className={`ms-auto fw-bold ${colorClass}`} style={{minWidth: '40px', textAlign: 'right'}}>
-                                            {progressPercentage}%
+                                        <div className="d-flex align-items-center" style={{flex: '0 0 100px'}}>
+                                            <Form.Control
+                                                type="number"
+                                                size="sm"
+                                                value={displayValue}
+                                                onChange={(e) => handleProgressChange(tp.techStackName, e.target.value)}
+                                                min="0"
+                                                max="100"
+                                                title={`Automatic: ${automaticProgress}%`}
+                                            />
+                                            <span className="ms-1">%</span>
                                         </div>
                                     </div>
                                 );
@@ -227,7 +259,9 @@ const InternshipMasterForm = ({ data, setData, techStackOptions, loading, techSt
     );
 };
 
+
 const InternshipsTracker = () => {
+    // ... (rest of the state and handlers in InternshipsTracker component) ...
     const { user } = useAuth();
     const [activeSheet, setActiveSheet] = useState('internship-master');
     const [sheetData, setSheetData] = useState([]);
@@ -359,11 +393,11 @@ const InternshipsTracker = () => {
         setSuccess('');
         try {
             await actionFunc(...args);
-            return true; // Indicate success
+            return true; 
         } catch(err) {
             const defaultMessage = `An error occurred.`;
             setError(err.response?.data?.error || err.message || defaultMessage);
-            return false; // Indicate failure
+            return false;
         } finally {
             setActionLoading(false);
         }
@@ -391,7 +425,7 @@ const InternshipsTracker = () => {
             await fetchData(activeSheet);
             setNewRowData({});
         }
-    }, [activeSheet, newRowData, handleAction, fetchData, setError, setSuccess]);
+    }, [activeSheet, newRowData, handleAction, fetchData, setError]);
     
     const handleAddNewInternship = useCallback(async () => {
         if (!newInternship.companies.trim()) {
@@ -453,7 +487,6 @@ const InternshipsTracker = () => {
         return 'text-warning';
     };
 
-    // Pagination Component - NEW IMPLEMENTATION
     const PaginationControls = ({ totalRows }) => {
         const handleRowsPerPageChange = (e) => {
             setRowsPerPage(Number(e.target.value));
@@ -510,7 +543,7 @@ const InternshipsTracker = () => {
         };
     
         return (
-            <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 p-2">
                 <div className="d-flex align-items-center gap-2">
                     <span className="text-muted small"></span>
                     <Form.Select size="sm" value={rowsPerPage} onChange={handleRowsPerPageChange} style={{width: '75px'}}>
@@ -650,8 +683,7 @@ const InternshipsTracker = () => {
             </Card>
         );
     };
-
-    // ** FIX: Moved useMemo out of renderActiveSheet to the top level **
+    
     const paginatedData = useMemo(() => {
         if (loading) return [];
         const startIndex = (currentPage - 1) * rowsPerPage;
@@ -666,7 +698,6 @@ const InternshipsTracker = () => {
             return (<div className="text-center py-5"><Spinner animation="border" variant="primary" /><p className="mt-2 text-muted">Loading data...</p></div>);
         }
 
-        // Special views
         if (activeSheet === 'companywise-students-progress') return <CompanywiseStudentsProgress user={user} />;
         if (activeSheet === 'stack-to-company-mapping') {
             return (
@@ -681,20 +712,11 @@ const InternshipsTracker = () => {
                         <Table striped bordered hover responsive>
                             <thead className="table-light">
                                 <tr>
-                                    <th style={{width: '20%'}}>Company Name</th>
-                                    <th style={{width: '20%'}}>Role Name</th>
-                                    <th style={{width: '15%'}}>Role Deadline</th>
-                                    <th style={{width: '15%'}}>Techstack Name</th>
-                                    <th style={{width: '15%'}}>Completion %</th>
-                                    <th style={{width: '15%'}}>Techstack Deadline</th>
+                                    <th style={{width: '20%'}}>Company Name</th><th style={{width: '20%'}}>Role Name</th><th style={{width: '15%'}}>Role Deadline</th><th style={{width: '15%'}}>Techstack Name</th><th style={{width: '15%'}}>Completion %</th><th style={{width: '15%'}}>Techstack Deadline</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {loading ? (
-                                    <tr><td colSpan="6" className="text-center py-4"><Spinner animation="border" size="sm"/> Loading mapping data...</td></tr> 
-                                ) : mappingData.length === 0 ? (
-                                    <tr><td colSpan="6" className="text-center text-muted py-4">No data to display. Add progress data in the 'Companywise Students Progress' section.</td></tr>
-                                ) : (
+                                {loading ? (<tr><td colSpan="6" className="text-center py-4"><Spinner animation="border" size="sm"/> Loading...</td></tr>) : mappingData.length === 0 ? (<tr><td colSpan="6" className="text-center text-muted py-4">No data.</td></tr>) : (
                                     mappingData.map((mapping, mapIndex) => (
                                         mapping.techStacks.length > 0 ? (
                                             mapping.techStacks.map((techStack, tsIndex) => (
@@ -703,30 +725,18 @@ const InternshipsTracker = () => {
                                                     {tsIndex === 0 && <td rowSpan={mapping.techStacks.length || 1}>{mapping.roleName}</td>}
                                                     {tsIndex === 0 && <td rowSpan={mapping.techStacks.length || 1}>{mapping.roleDeadline ? new Date(mapping.roleDeadline).toLocaleDateString() : 'N/A'}</td>}
                                                     <td>{techStack.name}</td>
-                                                    <td>
-                                                        <span className={`fw-bold ${getProgressColorClass(techStack.progress)}`}>
-                                                            {techStack.progress}%
-                                                        </span>
-                                                    </td>
+                                                    <td><span className={`fw-bold ${getProgressColorClass(techStack.progress)}`}>{techStack.progress}%</span></td>
                                                     <td>{techStack.deadline ? new Date(techStack.deadline).toLocaleDateString() : 'N/A'}</td>
                                                 </tr>
                                             ))
                                         ) : (
-                                            <tr key={mapIndex}>
-                                                <td>{mapping.companyName}</td>
-                                                <td>{mapping.roleName}</td>
-                                                <td>{mapping.roleDeadline ? new Date(mapping.roleDeadline).toLocaleDateString() : 'N/A'}</td>
-                                                <td colSpan="3" className="text-center text-muted fst-italic">No tech stacks assigned for this role.</td>
-                                            </tr>
+                                            <tr key={mapIndex}><td>{mapping.companyName}</td><td>{mapping.roleName}</td><td>{mapping.roleDeadline ? new Date(mapping.roleDeadline).toLocaleDateString() : 'N/A'}</td><td colSpan="3" className="text-center text-muted fst-italic">No stacks assigned.</td></tr>
                                         )
                                     ))
                                 )}
                             </tbody>
                         </Table>
                     </Card.Body>
-                     <Card.Footer className="bg-light border-top">
-                        <PaginationControls totalRows={mappingData.length} />
-                    </Card.Footer>
                 </Card>
             );
         }
@@ -741,36 +751,26 @@ const InternshipsTracker = () => {
                     <div className="table-responsive table-container-scroll">
                         <Table striped bordered hover size="sm" className="align-middle">
                             <thead className="table-light">
-                                <tr>
-                                    <th>Companies</th><th>Roles</th><th>Offers</th><th>Status</th><th>Reason (Inactive)</th><th>Mapping Method</th><th>Mapping Counts</th><th>Tech Stacks & Progress</th><th>Internship Start</th><th>Stack Completion</th>
-                                    {user.role === 'admin' && <th className="text-center">Actions</th>}
-                                </tr>
+                                <tr><th>Companies</th><th>Roles</th><th>Offers</th><th>Status</th><th>Reason (Inactive)</th><th>Mapping Method</th><th>Mapping Counts</th><th>Tech Stacks & Progress</th><th>Internship Start</th><th>Stack Completion</th>{user.role === 'admin' && <th className="text-center">Actions</th>}</tr>
                             </thead>
                             <tbody>
-                                {paginatedData.length === 0 && !loading && (<tr><td colSpan="11" className="text-center text-muted py-4">No data available for this sheet.</td></tr>)}
+                                {paginatedData.length === 0 && !loading && (<tr><td colSpan="11" className="text-center text-muted py-4">No data.</td></tr>)}
                                 {paginatedData.map(row => (
                                     <tr key={row._id}>
                                         <td>{row.companies}</td><td>{row.roles}</td><td>{row.internshipOffers}</td><td><span className={`badge ${row.companyStatus === 'Active' ? 'bg-success' : 'bg-secondary'}`}>{row.companyStatus}</span></td><td style={{ maxWidth: '200px', whiteSpace: 'normal', wordBreak: 'break-word' }}>{row.companyStatus === 'Inactive' ? row.reasonInactive : 'N/A'}</td><td>{row.studentMappingMethod}</td><td>{row.studentMappingCounts}</td>
                                         <td style={{minWidth: '200px'}}>{(row.techProgress || []).map(tp => {
-                                            const progressInfo = techStackProgress.find(p => p.name === tp.techStackName);
-                                            const progressValue = progressInfo ? Math.round(progressInfo.completionPercentage) : 0;
+                                            const progressData = techStackProgress.find(p => p.name === tp.techStackName);
+                                            const progressValue = tp.manualProgress ?? (progressData ? Math.round(progressData.completionPercentage) : 0);
                                             return (<div key={tp.techStackName} className="d-flex align-items-center my-1"><span className="me-2 text-truncate" style={{maxWidth:'100px'}}>{tp.techStackName}</span> <span className={`ms-auto small fw-bold ${getProgressColorClass(progressValue)}`}>{progressValue}%</span></div>);
                                         })}</td>
                                         <td>{row.internshipStartDate ? new Date(row.internshipStartDate).toLocaleDateString() : 'N/A'}</td><td>{row.stackCompletionDate ? new Date(row.stackCompletionDate).toLocaleDateString() : 'N/A'}</td>
-                                        {user.role === 'admin' && (
-                                            <td className="text-center">
-                                                <Button variant="outline-primary" size="sm" onClick={() => handleOpenEditModal(row, 'internship-master')} className="me-2" title="Edit Row"><i className="fas fa-edit"></i></Button>
-                                                <Button variant="outline-danger" size="sm" onClick={() => openDeleteRowModal(row._id)} title="Delete Row"><i className="fas fa-trash"></i></Button>
-                                            </td>
-                                        )}
+                                        {user.role === 'admin' && (<td className="text-center"><Button variant="outline-primary" size="sm" onClick={() => handleOpenEditModal(row, 'internship-master')} className="me-2" title="Edit Row"><i className="fas fa-edit"></i></Button><Button variant="outline-danger" size="sm" onClick={() => openDeleteRowModal(row._id)} title="Delete Row"><i className="fas fa-trash"></i></Button></td>)}
                                     </tr>
                                 ))}
                             </tbody>
                         </Table>
                     </div>
-                    <div className="bg-light border-top">
-                         <PaginationControls totalRows={sheetData.length} />
-                    </div>
+                     <PaginationControls totalRows={sheetData.length} />
                 </div>
             );
         }
@@ -779,136 +779,31 @@ const InternshipsTracker = () => {
                 <div>
                      {user.role === 'admin' && (
                         <div className="d-flex justify-content-end mb-3">
-                           <Button variant="primary" onClick={() => { setEditingTechStackRoadmap(null); setShowTechStackRoadmapModal(true); }}>
-                               <i className="fas fa-plus me-2" />Add Roadmap
-                           </Button>
+                           <Button variant="primary" onClick={() => { setEditingTechStackRoadmap(null); setShowTechStackRoadmapModal(true); }}><i className="fas fa-plus me-2" />Add Roadmap</Button>
                        </div>
                      )}
                      <div className="table-container-scroll">
-                         <EditableTable
-                        columns={columns} 
-                        data={paginatedData} 
-                        onSave={user.role === 'admin' ? handleSaveRow : undefined} 
-                        onDelete={user.role === 'admin' ? openDeleteRowModal : undefined}
-                        isLoading={actionLoading} 
-                        allowAdd={false} 
-                        activeSheet={activeSheet} />
+                         <EditableTable columns={columns} data={paginatedData} onSave={user.role === 'admin' ? handleSaveRow : undefined} onDelete={user.role === 'admin' ? openDeleteRowModal : undefined} isLoading={actionLoading} allowAdd={false} activeSheet={activeSheet} />
                      </div>
-                     <div className="bg-light border-top">
-                        <PaginationControls totalRows={sheetData.length} />
-                    </div>
+                      <PaginationControls totalRows={sheetData.length} />
                  </div>
             );
         }
         
         if (['student-wise-progress', 'critical-points'].includes(activeSheet)) {
             return (
-                <>
-                    {user.role === 'admin' && renderAddFormForSheet(activeSheet)}
-                    <Card className="mt-4 shadow-sm">
-                        <Card.Header as="h6" className="bg-light">{subsheetConfigs[activeSheet].name} Data</Card.Header>
-                        <Card.Body className="p-0"> 
-                             <div className="table-container-scroll">
-                                <EditableTable
-                                    columns={columns}
-                                    data={paginatedData}
-                                    onSave={user.role === 'admin' ? handleSaveRow : undefined}
-                                    onDelete={user.role === 'admin' ? openDeleteRowModal : undefined}
-                                    isLoading={actionLoading || loading}
-                                    allowAdd={false} 
-                                    activeSheet={activeSheet}
-                                />
-                             </div>
-                            <div className="bg-light border-top">
-                                <PaginationControls totalRows={sheetData.length} />
-                            </div>
-                        </Card.Body>
-                    </Card>
-                </>
+                <><Card className="mt-4 shadow-sm"><Card.Header as="h6" className="bg-light">{subsheetConfigs[activeSheet].name} Data</Card.Header><Card.Body className="p-0"> <div className="table-container-scroll"><EditableTable columns={columns} data={paginatedData} onSave={user.role === 'admin' ? handleSaveRow : undefined} onDelete={user.role === 'admin' ? openDeleteRowModal : undefined} isLoading={actionLoading || loading} allowAdd={false} activeSheet={activeSheet} /></div><PaginationControls totalRows={sheetData.length} /></Card.Body></Card></>
             );
         }
     };
-
+    
     return (
-        <div className="container-fluid p-md-1">
-            <Card className="border-0 shadow-sm">
-                <Card.Header>
-                     <Nav variant="tabs" activeKey={activeSheet} onSelect={(k) => setActiveSheet(k)}>
-                         {Object.entries(subsheetConfigs).map(([key, config]) => (
-                            <Nav.Item key={key}><Nav.Link eventKey={key}>{config.name}</Nav.Link></Nav.Item>
-                         ))}
-                    </Nav>
-                </Card.Header>
-                <Card.Body>
-                    {error && <Alert variant="danger" onClose={() => setError('')} dismissible>{error}</Alert>}
-                    {success && <Alert variant="success" onClose={() => setSuccess('')} dismissible>{success}</Alert>}
-                    {renderActiveSheet()}
-                </Card.Body>
-            </Card>
-            
-            <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg" centered>
-                <Modal.Header closeButton><Modal.Title>{editingInternship ? 'Edit' : 'Add'} Internship Master</Modal.Title></Modal.Header>
-                 <Modal.Body className="p-4">
-                     {showEditModal && (
-                        <InternshipMasterForm 
-                            data={editingInternship || newInternship} 
-                            setData={editingInternship ? setEditingInternship : setNewInternship}
-                            techStackOptions={techStackOptions}
-                            loading={loading}
-                            techStackProgress={techStackProgress} 
-                        />
-                     )}
-                 </Modal.Body>
-                 <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowEditModal(false)} disabled={actionLoading}>Cancel</Button>
-                     <Button variant="primary" onClick={() => editingInternship ? handleSaveFromModal('internship-master')(editingInternship) : handleAddNewInternship()} disabled={actionLoading}>
-                        {actionLoading ? <><Spinner size="sm" /> Saving...</> : (editingInternship ? 'Save Changes' : 'Add Internship')}
-                     </Button>
-                </Modal.Footer>
-            </Modal>
-            
-            <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
-                <Modal.Header closeButton><Modal.Title>Delete Row</Modal.Title></Modal.Header>
-                <Modal.Body>Are you sure you want to delete this row? This action cannot be undone.</Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>Cancel</Button>
-                    <Button variant="danger" onClick={handleConfirmDelete} disabled={actionLoading}>{actionLoading ? <Spinner animation="border" size="sm" /> : 'Delete'}</Button>
-                </Modal.Footer>
-            </Modal>
-            <Modal show={showTechStackRoadmapModal} onHide={() => setShowTechStackRoadmapModal(false)} size="lg" centered>
-                 <Modal.Header closeButton>
-                     <Modal.Title>{editingTechStackRoadmap ? 'Edit' : 'Add'} Tech Stack Roadmap</Modal.Title>
-                 </Modal.Header>
-                 <Modal.Body>
-                     <TechStackRoadmapForm 
-                        onSave={handleSaveFromModal('tech-stack-roadmaps')}
-                        onCancel={() => setShowTechStackRoadmapModal(false)}
-                        techStackProgressData={techStackProgress}
-                        initialData={editingTechStackRoadmap}
-                        techStackOptions={techStackOptions}
-                        instructors={instructors}
-                        isLoading={actionLoading}
-                    />
-                 </Modal.Body>
-            </Modal>
-
-            <Modal show={showDeleteTSRModal} onHide={() => setShowDeleteTSRModal(false)} centered>
-                <Modal.Header closeButton><Modal.Title>Confirm Delete</Modal.Title></Modal.Header>
-                <Modal.Body>Are you sure you want to delete this Tech Stack Roadmap?</Modal.Body>
-                <Modal.Footer><Button variant="secondary" onClick={() => setShowDeleteTSRModal(false)}>Cancel</Button><Button variant="danger" onClick={handleConfirmDelete} disabled={actionLoading}>{actionLoading? <Spinner size="sm" /> : 'Delete'}</Button></Modal.Footer>
-            </Modal>
-            <style>{`
-                .table-container-scroll {
-                    max-height: 70vh; /* Adjust as needed */
-                    overflow-y: auto;
-                }
-                .table-container-scroll thead th {
-                    position: sticky;
-                    top: 0;
-                    z-index: 10;
-                    background-color: #f8f9fa; /* Match existing table header bg */
-                }
-            `}</style>
+        <div className="container-fluid p-md-1"><Card className="border-0 shadow-sm"><Card.Header><Nav variant="tabs" activeKey={activeSheet} onSelect={(k) => setActiveSheet(k)}>{Object.entries(subsheetConfigs).map(([key, config]) => (<Nav.Item key={key}><Nav.Link eventKey={key}>{config.name}</Nav.Link></Nav.Item>))}</Nav></Card.Header><Card.Body>{error && <Alert variant="danger" onClose={() => setError('')} dismissible>{error}</Alert>}{success && <Alert variant="success" onClose={() => setSuccess('')} dismissible>{success}</Alert>}{renderActiveSheet()}</Card.Body></Card>
+            <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg" centered><Modal.Header closeButton><Modal.Title>{editingInternship ? 'Edit' : 'Add'} Internship Master</Modal.Title></Modal.Header><Modal.Body className="p-4">{showEditModal && (<InternshipMasterForm data={editingInternship || newInternship} setData={editingInternship ? setEditingInternship : setNewInternship} techStackOptions={techStackOptions} loading={loading} techStackProgress={techStackProgress} />)}</Modal.Body><Modal.Footer><Button variant="secondary" onClick={() => setShowEditModal(false)} disabled={actionLoading}>Cancel</Button><Button variant="primary" onClick={() => editingInternship ? handleSaveFromModal('internship-master')(editingInternship) : handleAddNewInternship()} disabled={actionLoading}>{actionLoading ? <><Spinner size="sm" /> Saving...</> : (editingInternship ? 'Save Changes' : 'Add Internship')}</Button></Modal.Footer></Modal>
+            <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered><Modal.Header closeButton><Modal.Title>Delete Row</Modal.Title></Modal.Header><Modal.Body>Are you sure?</Modal.Body><Modal.Footer><Button variant="secondary" onClick={() => setShowDeleteModal(false)}>Cancel</Button><Button variant="danger" onClick={handleConfirmDelete} disabled={actionLoading}>{actionLoading ? <Spinner animation="border" size="sm" /> : 'Delete'}</Button></Modal.Footer></Modal>
+            <Modal show={showTechStackRoadmapModal} onHide={() => setShowTechStackRoadmapModal(false)} size="lg" centered><Modal.Header closeButton><Modal.Title>{editingTechStackRoadmap ? 'Edit' : 'Add'} Tech Stack Roadmap</Modal.Title></Modal.Header><Modal.Body><TechStackRoadmapForm onSave={handleSaveFromModal('tech-stack-roadmaps')} onCancel={() => setShowTechStackRoadmapModal(false)} techStackProgressData={techStackProgress} initialData={editingTechStackRoadmap} techStackOptions={techStackOptions} instructors={instructors} isLoading={actionLoading} /></Modal.Body></Modal>
+            <Modal show={showDeleteTSRModal} onHide={() => setShowDeleteTSRModal(false)} centered><Modal.Header closeButton><Modal.Title>Confirm Delete</Modal.Title></Modal.Header><Modal.Body>Are you sure?</Modal.Body><Modal.Footer><Button variant="secondary" onClick={() => setShowDeleteTSRModal(false)}>Cancel</Button><Button variant="danger" onClick={handleConfirmDelete} disabled={actionLoading}>{actionLoading? <Spinner size="sm" /> : 'Delete'}</Button></Modal.Footer></Modal>
+            <style>{`.table-container-scroll { max-height: 70vh; overflow-y: auto; } .table-container-scroll thead th { position: sticky; top: 0; z-index: 10; background-color: #f8f9fa; }`}</style>
         </div>
     );
 };
