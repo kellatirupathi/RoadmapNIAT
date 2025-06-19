@@ -1,7 +1,10 @@
+// server/models/InternshipMaster.js
 import mongoose from 'mongoose';
 
 const TechProgressSchema = new mongoose.Schema({
-  techStackName: { type: String, required: true }
+  techStackName: { type: String, required: true },
+  // ADDED: Field for manual progress override
+  manualProgress: { type: Number, default: null, min: 0, max: 100 }
 }, { _id: false });
 
 const InternshipMasterSchema = new mongoose.Schema({
@@ -14,7 +17,7 @@ const InternshipMasterSchema = new mongoose.Schema({
   studentMappingCounts: { type: Number, default: 0 },
   internshipStartDate: { type: Date, default: null },
   stackCompletionDate: { type: Date, default: null },
-  techProgress: [TechProgressSchema] // Replaced individual tech stack fields
+  techProgress: [TechProgressSchema]
 }, { timestamps: true });
 
 const InternshipMaster = mongoose.model('InternshipMaster', InternshipMasterSchema);
