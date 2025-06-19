@@ -219,8 +219,11 @@ const CompanywiseStudentsProgress = ({ user }) => {
                 await internshipsTrackerService.createSheetRow('companywise-students-progress', data);
             }
             await fetchSavedData();
+            // --- START OF FIX: Add success message and reset form ---
+            setSuccess('Progress data saved successfully!');
             setCompanyName('');
             setRoles([{ id: 1, roleName: '', noOfOffers: 1, roleDeadline: null, selectedTechStacks: [], students: [{ id: 1, niatId: '', studentName: '', techAssignments: [] }] }]);
+            // --- END OF FIX ---
         } catch (err) {
             setError("Failed to save data. " + (err.response?.data?.error || err.message));
         } finally {
@@ -358,7 +361,6 @@ const CompanywiseStudentsProgress = ({ user }) => {
         return tableData.slice(startIndex, endIndex);
     }, [tableData, currentPage, rowsPerPage, loading]);
 
-    // Pagination Component
     const PaginationControls = () => {
         const totalRows = tableData.length;
         if (totalRows === 0) return null;
@@ -471,7 +473,7 @@ const CompanywiseStudentsProgress = ({ user }) => {
                         value = 'Invalid Date';
                     }
                 }
-                return value ?? ''; // Ensure null/undefined becomes an empty string
+                return value ?? ''; 
             })
         );
 
@@ -626,7 +628,7 @@ const CompanywiseStudentsProgress = ({ user }) => {
                     )}
                 </Card.Body>
                  <Card.Footer className="bg-light border-top">
-                    <PaginationControls />
+                    <PaginationControls totalRows={tableData.length} />
                 </Card.Footer>
             </Card>
 
