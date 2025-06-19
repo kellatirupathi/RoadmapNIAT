@@ -37,10 +37,33 @@ export const createSheetRow = async (req, res) => {
         return res.status(404).json({ success: false, error: 'Subsheet not found' });
     }
     try {
-        const newRow = await Model.create(req.body);
-        res.status(201).json({ success: true, data: newRow });
+        // --- START OF FIX: Replaced Model.create with findOneAndUpdate for "upsert" ---
+        const { companyName, roleName, niatId } = req.body;
+        
+        // Define the query to find a unique document. Use NIAT ID if present.
+        const query = { companyName, roleName, niatId };
+
+        // We only want a unique student per company/role if the NIAT ID is provided.
+        // If NIAT ID is blank, we can't guarantee uniqueness, so we treat it as a new entry.
+        if (!niatId || niatId.trim() === '') {
+             const newRow = await Model.create(req.body);
+             return res.status(201).json({ success: true, data: newRow });
+        }
+
+        const updatedOrCreatedRow = await Model.findOneAndUpdate(
+            query, // The fields that make the document unique
+            req.body, // The data to insert or update with
+            {
+                new: true,          // Return the modified document rather than the original
+                upsert: true,       // Create a new document if one doesn't match the query
+                runValidators: true // Ensure new/updated data adheres to schema rules
+            }
+        );
+        // --- END OF FIX ---
+        
+        res.status(201).json({ success: true, data: updatedOrCreatedRow });
     } catch (error) {
-        res.status(400).json({ success: false, error: 'Failed to create row: ' + error.message });
+        res.status(400).json({ success: false, error: 'Failed to create or update row: ' + error.message });
     }
 };
 
