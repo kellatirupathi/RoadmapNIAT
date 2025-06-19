@@ -14,7 +14,6 @@ const EditableTable = ({ columns, data, onSave, onDelete, onAdd, isLoading, acti
         return initial;
     });
 
-    // --- START: Added state for expandable cells ---
     const [expandedCells, setExpandedCells] = useState({});
 
     const toggleCellExpansion = (cellId) => {
@@ -23,8 +22,7 @@ const EditableTable = ({ columns, data, onSave, onDelete, onAdd, isLoading, acti
             [cellId]: !prev[cellId]
         }));
     };
-    // --- END: Added state for expandable cells ---
-
+    
     const groupedColumns = () => {
         if (activeSheet !== 'tech-stack-roadmaps') return null;
         
@@ -88,20 +86,14 @@ const EditableTable = ({ columns, data, onSave, onDelete, onAdd, isLoading, acti
         const isEditing = editingRowId === row._id;
         const value = isEditing ? editedData[column.field] : row[column.field];
         
-        // --- START: Added logic for expandable cells ---
         const cellId = `${row._id}-${column.field}`;
         const isExpanded = !!expandedCells[cellId];
-        const maxLength = 50; // Truncation length
+        const maxLength = 50;
 
-        // Define which columns in the 'critical-points' sheet should be expandable
         const expandableColumns = [
-            'fortnightInteractionRemarks',
-            'feedbackFromCompany',
-            'feedbackImplementationStatus',
-            'feedbackImplementationRemarks'
+            'fortnightInteractionRemarks', 'feedbackFromCompany', 'feedbackImplementationStatus', 'feedbackImplementationRemarks'
         ];
         const isExpandableColumn = activeSheet === 'critical-points' && expandableColumns.includes(column.field);
-        // --- END: Added logic for expandable cells ---
         
         if (isEditing) {
             if (column.type === 'date') {
@@ -118,37 +110,34 @@ const EditableTable = ({ columns, data, onSave, onDelete, onAdd, isLoading, acti
             }
             if (column.type === 'number') {
                 return (
+                    <Form.Control type="number" name={column.field} value={value || ''} onChange={handleInputChange} size="sm" />
+                );
+            }
+            // MODIFIED: Handle 'progress' type during editing
+            if (column.type === 'progress') {
+                return (
                     <Form.Control
                         type="number"
                         name={column.field}
-                        value={value || ''}
+                        value={value !== null ? value : ''}
                         onChange={handleInputChange}
                         size="sm"
+                        min="0"
+                        max="100"
+                        placeholder="%"
                     />
                 );
             }
             return (
-                <Form.Control
-                    type="text"
-                    as="textarea" // Use textarea for editing remarks
-                    rows={3}
-                    name={column.field}
-                    value={value || ''}
-                    onChange={handleInputChange}
-                    size="sm"
-                />
+                <Form.Control type="text" as="textarea" rows={3} name={column.field} value={value || ''} onChange={handleInputChange} size="sm" />
             );
         }
         
         if (!isEditing && column.field === 'roadmapLink') {
             if (value && (value.startsWith('http') || value.startsWith('/'))) {
-                return (
-                    <a href={value} target="_blank" rel="noopener noreferrer">
-                        {value}
-                    </a>
-                );
+                return <a href={value} target="_blank" rel="noopener noreferrer">{value}</a>;
             }
-            return value; // Render as plain text if not a link
+            return value;
         }
         
         if (!isEditing && /^techStack\d+Name$/.test(column.field)) {
@@ -158,8 +147,9 @@ const EditableTable = ({ columns, data, onSave, onDelete, onAdd, isLoading, acti
         if (!isEditing && column.type === 'progress') {
             const progressValue = value;
             
+            // MODIFIED: Show 'Auto' if the manual override is not set
             if (progressValue === null || typeof progressValue === 'undefined') {
-                return null; 
+                return <span className="text-muted small">Auto</span>;
             }
             
             const roundedProgress = Math.round(progressValue);
@@ -182,28 +172,19 @@ const EditableTable = ({ columns, data, onSave, onDelete, onAdd, isLoading, acti
             return new Date(value).toLocaleDateString();
         }
 
-        // --- START: Display logic for expandable remarks columns ---
         if (isExpandableColumn && typeof value === 'string' && value.length > maxLength) {
             return (
                 <div>
                     <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                         {isExpanded ? value : `${value.substring(0, maxLength)}...`}
                     </span>
-                    <Button
-                        variant="link"
-                        size="sm"
-                        onClick={() => toggleCellExpansion(cellId)}
-                        // className="p-0 ms-1 fw-bold"
-                        style={{textDecoration: 'none'}}
-                    >
+                    <Button variant="link" size="sm" onClick={() => toggleCellExpansion(cellId)} style={{textDecoration: 'none'}}>
                         {isExpanded ? 'Less' : 'More'}
                     </Button>
                 </div>
             );
         }
-        // --- END: Display logic for expandable remarks columns ---
 
-        // Original truncation for other long text fields
         if (typeof value === 'string' && value.length > 50) {
             return (
                 <span title={value} style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
@@ -212,7 +193,6 @@ const EditableTable = ({ columns, data, onSave, onDelete, onAdd, isLoading, acti
             );
         }
 
-        // Default render for all other cases
         return value;
     };
     
@@ -258,11 +238,7 @@ const EditableTable = ({ columns, data, onSave, onDelete, onAdd, isLoading, acti
                     </tr>
                     <tr>
                         {columns.map(col => (
-                            <th 
-                                key={col.field} 
-                                data-field={col.field}
-                                title={col.header}
-                            >
+                            <th key={col.field} data-field={col.field} title={col.header}>
                                 {col.header}
                             </th>
                         ))}
@@ -275,11 +251,7 @@ const EditableTable = ({ columns, data, onSave, onDelete, onAdd, isLoading, acti
         return (
             <tr>
                 {columns.map(col => (
-                    <th 
-                        key={col.field} 
-                        data-field={col.field}
-                        title={col.header}
-                    >
+                    <th key={col.field} data-field={col.field} title={col.header}>
                         {col.header}
                     </th>
                 ))}
@@ -348,45 +320,19 @@ const EditableTable = ({ columns, data, onSave, onDelete, onAdd, isLoading, acti
                                 <td className="text-center actions-column">
                                     {editingRowId === row._id ? (
                                         <div className="d-flex justify-content-center">
-                                            <Button 
-                                                variant="outline-success" 
-                                                size="sm" 
-                                                onClick={() => handleSaveClick(row._id)} 
-                                                className="me-2" 
-                                                disabled={isLoading}
-                                                title="Save changes"
-                                            >
+                                            <Button variant="outline-success" size="sm" onClick={() => handleSaveClick(row._id)} className="me-2" disabled={isLoading} title="Save changes">
                                                 {isLoading ? <Spinner animation="border" size="sm"/> : <i className="fas fa-save"></i>}
                                             </Button>
-                                            <Button 
-                                                variant="outline-secondary" 
-                                                size="sm" 
-                                                onClick={handleCancelClick} 
-                                                disabled={isLoading}
-                                                title="Cancel editing"
-                                            >
+                                            <Button variant="outline-secondary" size="sm" onClick={handleCancelClick} disabled={isLoading} title="Cancel editing">
                                                 <i className="fas fa-times"></i>
                                             </Button>
                                         </div>
                                     ) : (
                                         <div className="d-flex justify-content-center">
-                                            <Button 
-                                                variant="outline-primary" 
-                                                size="sm" 
-                                                onClick={() => handleEditClick(row)} 
-                                                className="me-2" 
-                                                disabled={isLoading}
-                                                title="Edit row"
-                                            >
+                                            <Button variant="outline-primary" size="sm" onClick={() => handleEditClick(row)} className="me-2" disabled={isLoading} title="Edit row">
                                                 <i className="fas fa-edit"></i>
                                             </Button>
-                                            <Button 
-                                                variant="outline-danger" 
-                                                size="sm" 
-                                                onClick={() => onDelete(row._id)} 
-                                                disabled={isLoading}
-                                                title="Delete row"
-                                            >
+                                            <Button variant="outline-danger" size="sm" onClick={() => onDelete(row._id)} disabled={isLoading} title="Delete row">
                                                 <i className="fas fa-trash"></i>
                                             </Button>
                                         </div>
