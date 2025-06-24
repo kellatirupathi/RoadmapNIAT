@@ -1,5 +1,5 @@
 // client/src/pages/RoadmapsManagement.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Table, Button, Spinner, Alert, Modal, Form, Badge, Card, Row, Col, InputGroup, Dropdown } from 'react-bootstrap';
 import useAuth from '../hooks/useAuth';
 import * as roadmapService from '../services/roadmapService';
@@ -45,6 +45,10 @@ const RoadmapsManagement = ({ setPageLoading }) => {
   const [roleFilter, setRoleFilter] = useState('');
   const [crmUsers, setCrmUsers] = useState([]); // Added for CRM user list
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+
   const fetchRoadmapsData = async () => {
     try {
       setLoading(true);
@@ -89,6 +93,12 @@ const RoadmapsManagement = ({ setPageLoading }) => {
         fetchCrmUsersForDropdowns(); // Fetch CRM users if admin
     }
   }, [user.role, setPageLoading]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, companyFilter, roleFilter]);
+
 
   const handleEdit = (roadmap) => {
     setEditingRoadmap(roadmap);
@@ -265,7 +275,6 @@ const RoadmapsManagement = ({ setPageLoading }) => {
 
         await roadmapService.updateRoadmap(editingRoadmap._id, dataToSaveForDB);
 
-        setSuccess('Roadmap updated and re-published successfully!');
         setShowEditModal(false);
         setEditingRoadmap(null);
         fetchRoadmapsData(); // Refresh list
@@ -338,6 +347,111 @@ const RoadmapsManagement = ({ setPageLoading }) => {
 
     return companyNameMatch && roleNameMatch && contentMatch;
   });
+
+  const paginatedData = useMemo(() => {
+    if (loading) return [];
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return filteredRoadmaps.slice(startIndex, endIndex);
+  }, [filteredRoadmaps, currentPage, rowsPerPage, loading]);
+
+  const PaginationControls = ({ totalRows }) => {
+    const totalPages = Math.ceil(totalRows / rowsPerPage);
+
+    const handleRowsPerPageChange = (e) => {
+        setRowsPerPage(Number(e.target.value));
+        setCurrentPage(1); // Reset to first page
+    };
+
+    const handlePageChange = (page) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+        }
+    };
+
+    if (totalPages <= 1) return null;
+
+    const renderPageNumbers = () => {
+        const pageNumbers = [];
+        let startPage, endPage;
+
+        const maxButtons = 4; // Display a maximum of 4 page buttons
+
+        if (totalPages <= maxButtons) {
+            // If total pages are 4 or less, show all of them
+            startPage = 1;
+            endPage = totalPages;
+        } else {
+            // Logic to slide the window of pages
+            if (currentPage <= 2) {
+                // If on page 1 or 2, show 1, 2, 3, 4
+                startPage = 1;
+                endPage = maxButtons;
+            } else if (currentPage + 1 >= totalPages) {
+                // If near the end, show the last 4 pages
+                startPage = totalPages - maxButtons + 1;
+                endPage = totalPages;
+            } else {
+                // Centered case
+                startPage = currentPage - 1;
+                endPage = currentPage + (maxButtons - 2);
+            }
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            pageNumbers.push(
+                <Button
+                    key={i}
+                    variant={currentPage === i ? 'primary' : 'outline-secondary'}
+                    size="sm"
+                    onClick={() => handlePageChange(i)}
+                    className="mx-1 rounded-circle"
+                    style={{width: '28px', height: '28px'}}
+                >
+                    {i}
+                </Button>
+            );
+        }
+        return pageNumbers;
+    };
+  
+    return (
+        <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 py-2 px-3">
+            <div className="d-flex align-items-center gap-2">
+                <Form.Select size="sm" value={rowsPerPage} onChange={handleRowsPerPageChange} style={{width: 'auto'}}>
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </Form.Select>
+            </div>
+
+
+            <div className="d-flex align-items-center gap-2">
+                <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="text-secondary"
+                >
+                    <i className="fas fa-chevron-left"></i>
+                </Button>
+                {renderPageNumbers()}
+                <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="text-secondary"
+                >
+                    <i className="fas fa-chevron-right"></i>
+                </Button>
+            </div>
+        </div>
+    );
+  };
+
 
   return (
     <div className="">
@@ -442,7 +556,7 @@ const RoadmapsManagement = ({ setPageLoading }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {!loading && filteredRoadmaps.length === 0 && (
+                  {!loading && paginatedData.length === 0 && (
                     <tr>
                       <td colSpan="8" className="text-center py-5">
                         <div className="mb-3"><i className="fas fa-route fa-3x text-muted"></i></div>
@@ -454,7 +568,7 @@ const RoadmapsManagement = ({ setPageLoading }) => {
                     </tr>
                   )}
                   
-                  {filteredRoadmaps.map(roadmap => (
+                  {paginatedData.map(roadmap => (
                     <tr key={roadmap._id}>
                       <td className="fw-medium">
                         <Button 
@@ -601,6 +715,9 @@ const RoadmapsManagement = ({ setPageLoading }) => {
             </div>
           )}
         </Card.Body>
+        <Card.Footer className="bg-white border-top">
+           <PaginationControls totalRows={filteredRoadmaps.length} />
+        </Card.Footer>
       </Card>
 
       {user.role === 'admin' && (
