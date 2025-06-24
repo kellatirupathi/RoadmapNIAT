@@ -3,20 +3,21 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Table, Button, Spinner, Alert, Modal, Form, Badge, Card, Row, Col, InputGroup, Dropdown } from 'react-bootstrap';
 import useAuth from '../hooks/useAuth';
 import * as roadmapService from '../services/roadmapService';
-// Make sure getTechStackByName is imported if you use it for fetching full data
 import { getAllTechStacks as fetchAllTechStackOptionsForDropdown, getTechStackByName } from '../services/techStackService';
 import TechStackDropdown from '../components/TechStackDropdown/TechStackDropdown';
 import CreateRoadmapModal from '../components/CreateRoadmapModal/CreateRoadmapModal';
-import { generateRoadmapHtml } from '../utils/roadmapHtmlGenerator'; // IMPORT THE HTML GENERATOR
-import { uploadToGithub } from '../services/githubService'; // IMPORT GITHUB UPLOAD SERVICE
-import userService from '../services/userService'; // Added for fetching CRM users
+import { generateRoadmapHtml } from '../utils/roadmapHtmlGenerator';
+import { uploadToGithub } from '../services/githubService';
+import userService from '../services/userService';
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
 
 const RoadmapsManagement = ({ setPageLoading }) => {
   const { user } = useAuth();
   const [roadmaps, setRoadmaps] = useState([]);
   const [allTechStackOptions, setAllTechStackOptions] = useState([]);
-  const [loading, setLoading] = useState(true); // General loading for the page
-  const [actionLoading, setActionLoading] = useState(false); // Specific loading for save/delete actions
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
@@ -30,7 +31,7 @@ const RoadmapsManagement = ({ setPageLoading }) => {
     roles: [{ id: Date.now(), title: '', techStacks: [] }],
     publishedUrl: '',
     filename: '',
-    crmAffiliation: '', // Added for edit
+    crmAffiliation: '',
   });
 
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -40,10 +41,16 @@ const RoadmapsManagement = ({ setPageLoading }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [roadmapToDelete, setRoadmapToDelete] = useState(null);
 
+  const [showCrmDetailsModal, setShowCrmDetailsModal] = useState(false);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [companyFilter, setCompanyFilter] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
-  const [crmUsers, setCrmUsers] = useState([]); // Added for CRM user list
+  const [crmUsers, setCrmUsers] = useState([]);
+
+  // Date filter state
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -90,33 +97,57 @@ const RoadmapsManagement = ({ setPageLoading }) => {
     fetchRoadmapsData();
     if (user.role === 'admin') {
         fetchTechStackNamesForDropdowns();
-        fetchCrmUsersForDropdowns(); // Fetch CRM users if admin
+        fetchCrmUsersForDropdowns();
     }
   }, [user.role, setPageLoading]);
 
-  // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, companyFilter, roleFilter]);
+  }, [searchTerm, companyFilter, roleFilter, startDate, endDate]);
 
+  const dashboardStats = useMemo(() => {
+    if (!roadmaps || roadmaps.length === 0) {
+        return { totalRoadmaps: 0, uniqueCRMs: 0, uniqueTechStacks: 0, totalRoles: 0 };
+    }
+    const totalRoadmaps = roadmaps.length;
+    const uniqueCRMs = new Set(roadmaps.map(r => r.crmAffiliation).filter(Boolean)).size;
+    const uniqueTechStacks = new Set(roadmaps.flatMap(r => r.techStacks || [])).size;
+    const totalRoles = roadmaps.reduce((acc, roadmap) => acc + (roadmap.isConsolidated ? roadmap.roles?.length || 0 : 1), 0);
+
+    return { totalRoadmaps, uniqueCRMs, uniqueTechStacks, totalRoles };
+  }, [roadmaps]);
+
+  const crmStats = useMemo(() => {
+    if (!roadmaps || roadmaps.length === 0) return [];
+    
+    const stats = roadmaps.reduce((acc, roadmap) => {
+      const crm = roadmap.crmAffiliation || 'Unassigned';
+      acc[crm] = (acc[crm] || 0) + 1;
+      return acc;
+    }, {});
+
+    return Object.entries(stats)
+      .map(([crmName, count]) => ({ crmName, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [roadmaps]);
 
   const handleEdit = (roadmap) => {
     setEditingRoadmap(roadmap);
     const rolesForEdit = (roadmap.roles || []).map(roleDetail => ({
         id: roleDetail._id || Date.now(),
         title: roleDetail.title,
-        techStacks: (roleDetail.techStacks || []).map(tsObject => tsObject.name) // tsObject is { _id, name }
+        techStacks: (roleDetail.techStacks || []).map(tsObject => tsObject.name)
     }));
 
     setCurrentRoadmapData({
         companyName: roadmap.companyName,
         role: roadmap.isConsolidated ? 'Consolidated' : roadmap.role,
-        techStacks: [...(roadmap.techStacks || [])], // These are already names (overall)
+        techStacks: [...(roadmap.techStacks || [])],
         isConsolidated: roadmap.isConsolidated || false,
         roles: roadmap.isConsolidated && rolesForEdit.length > 0 ? rolesForEdit : [{ id: Date.now(), title: '', techStacks: [] }],
         publishedUrl: roadmap.publishedUrl,
         filename: roadmap.filename.endsWith('.html') ? roadmap.filename.slice(0, -5) : roadmap.filename, 
-        crmAffiliation: roadmap.crmAffiliation || '', // Added
+        crmAffiliation: roadmap.crmAffiliation || '',
     });
     setShowEditModal(true);
   };
@@ -196,9 +227,8 @@ const RoadmapsManagement = ({ setPageLoading }) => {
     setSuccess(null);
 
     try {
-        // 1. Determine overall tech stack names and roles for HTML generation
         let overallTechStackNamesForHTML;
-        let rolesForHTMLGeneratorInput; // This will be [{ title, techStacks: [FULL_TS_OBJECTS] }]
+        let rolesForHTMLGeneratorInput;
 
         if (currentRoadmapData.isConsolidated) {
             overallTechStackNamesForHTML = [...new Set(currentRoadmapData.roles.flatMap(role => role.techStacks))];
@@ -206,7 +236,6 @@ const RoadmapsManagement = ({ setPageLoading }) => {
             overallTechStackNamesForHTML = currentRoadmapData.techStacks;
         }
 
-        // 2. Fetch full data for all unique tech stacks needed for HTML
         const allUniqueNamesToFetch = [...new Set(overallTechStackNamesForHTML)];
         let fetchedFullTechStacksForHTML = [];
         if (allUniqueNamesToFetch.length > 0) {
@@ -231,28 +260,23 @@ const RoadmapsManagement = ({ setPageLoading }) => {
             }
         }
 
-
-        // 3. Prepare roles structure for HTML generator
         if (currentRoadmapData.isConsolidated) {
             rolesForHTMLGeneratorInput = currentRoadmapData.roles.map(role => ({
                 title: role.title,
-                // Map selected names to full tech stack objects
                 techStacks: fetchedFullTechStacksForHTML.filter(fullTS => role.techStacks.includes(fullTS.name))
             }));
         } else {
             rolesForHTMLGeneratorInput = [{
-                title: currentRoadmapData.role, // Main role title
+                title: currentRoadmapData.role,
                 techStacks: fetchedFullTechStacksForHTML.filter(fullTS => currentRoadmapData.techStacks.includes(fullTS.name))
             }];
         }
 
-        // 4. Generate new HTML content
         const htmlContent = generateRoadmapHtml(currentRoadmapData.companyName, rolesForHTMLGeneratorInput, fetchedFullTechStacksForHTML);
         if (!htmlContent) {
             throw new Error('Failed to generate roadmap HTML content during edit.');
         }
 
-        // 5. Re-upload to GitHub
         const finalFilename = currentRoadmapData.filename.trim().endsWith('.html')
             ? currentRoadmapData.filename.trim()
             : `${currentRoadmapData.filename.trim()}.html`;
@@ -263,21 +287,19 @@ const RoadmapsManagement = ({ setPageLoading }) => {
             description: `Update roadmap: ${finalFilename} for ${currentRoadmapData.companyName}`
         });
 
-        // 6. Prepare data for database update (includes new GitHub URL)
         const dataToSaveForDB = {
-            ...currentRoadmapData, // Contains companyName, role (main), techStacks (overall names), isConsolidated
-            crmAffiliation: currentRoadmapData.crmAffiliation || null, // Added
-            roles: currentRoadmapData.isConsolidated ? currentRoadmapData.roles.map(r => ({ title: r.title, techStacks: r.techStacks /* names */ })) : [],
+            ...currentRoadmapData,
+            crmAffiliation: currentRoadmapData.crmAffiliation || null,
+            roles: currentRoadmapData.isConsolidated ? currentRoadmapData.roles.map(r => ({ title: r.title, techStacks: r.techStacks })) : [],
             publishedUrl: githubResponse.html_url || githubResponse.url, 
-            filename: finalFilename, // Use the potentially updated filename
+            filename: finalFilename,
         };
-        // Note: The backend's updateRoadmap controller will convert role.techStacks (names) to ObjectIDs for consolidated
-
+        
         await roadmapService.updateRoadmap(editingRoadmap._id, dataToSaveForDB);
-
+        
         setShowEditModal(false);
         setEditingRoadmap(null);
-        fetchRoadmapsData(); // Refresh list
+        fetchRoadmapsData();
         setTimeout(() => setSuccess(null), 3000);
 
     } catch (err) {
@@ -337,15 +359,28 @@ const RoadmapsManagement = ({ setPageLoading }) => {
         (roadmap.isConsolidated ? "consolidated" : (roadmap.role || '').toLowerCase()).includes(searchLower) ||
         (roadmap.filename || '').toLowerCase().includes(searchLower) ||
         (roadmap.techStacks && roadmap.techStacks.some(tsName => (tsName || '').toLowerCase().includes(searchLower))) ||
-        (roadmap.crmAffiliation && roadmap.crmAffiliation.toLowerCase().includes(searchLower)) || // Added search by CRM affiliation
-        (roadmap.isConsolidated && roadmap.roles && roadmap.roles.some(r => // Corrected, tsPopulated does not exist.
+        (roadmap.crmAffiliation && roadmap.crmAffiliation.toLowerCase().includes(searchLower)) ||
+        (roadmap.isConsolidated && roadmap.roles && roadmap.roles.some(r =>
             (r.title || '').toLowerCase().includes(searchLower) ||
             (r.techStacks && r.techStacks.some(tsPopulated =>
                 (tsPopulated.name || '').toLowerCase().includes(searchLower)
             ))
         ));
+    
+    const roadmapDate = new Date(roadmap.createdDate);
+    let dateMatch = true;
+    if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        if (roadmapDate < start) dateMatch = false;
+    }
+    if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        if (roadmapDate > end) dateMatch = false;
+    }
 
-    return companyNameMatch && roleNameMatch && contentMatch;
+    return companyNameMatch && roleNameMatch && contentMatch && dateMatch;
   });
 
   const paginatedData = useMemo(() => {
@@ -360,7 +395,7 @@ const RoadmapsManagement = ({ setPageLoading }) => {
 
     const handleRowsPerPageChange = (e) => {
         setRowsPerPage(Number(e.target.value));
-        setCurrentPage(1); // Reset to first page
+        setCurrentPage(1);
     };
 
     const handlePageChange = (page) => {
@@ -374,25 +409,19 @@ const RoadmapsManagement = ({ setPageLoading }) => {
     const renderPageNumbers = () => {
         const pageNumbers = [];
         let startPage, endPage;
-
-        const maxButtons = 4; // Display a maximum of 4 page buttons
+        const maxButtons = 4;
 
         if (totalPages <= maxButtons) {
-            // If total pages are 4 or less, show all of them
             startPage = 1;
             endPage = totalPages;
         } else {
-            // Logic to slide the window of pages
             if (currentPage <= 2) {
-                // If on page 1 or 2, show 1, 2, 3, 4
                 startPage = 1;
                 endPage = maxButtons;
             } else if (currentPage + 1 >= totalPages) {
-                // If near the end, show the last 4 pages
                 startPage = totalPages - maxButtons + 1;
                 endPage = totalPages;
             } else {
-                // Centered case
                 startPage = currentPage - 1;
                 endPage = currentPage + (maxButtons - 2);
             }
@@ -400,14 +429,7 @@ const RoadmapsManagement = ({ setPageLoading }) => {
 
         for (let i = startPage; i <= endPage; i++) {
             pageNumbers.push(
-                <Button
-                    key={i}
-                    variant={currentPage === i ? 'primary' : 'outline-secondary'}
-                    size="sm"
-                    onClick={() => handlePageChange(i)}
-                    className="mx-1 rounded-circle"
-                    style={{width: '28px', height: '28px'}}
-                >
+                <Button key={i} variant={currentPage === i ? 'primary' : 'outline-secondary'} size="sm" onClick={() => handlePageChange(i)} className="mx-1 rounded-circle" style={{width: '28px', height: '28px'}}>
                     {i}
                 </Button>
             );
@@ -426,27 +448,10 @@ const RoadmapsManagement = ({ setPageLoading }) => {
                 </Form.Select>
             </div>
 
-
             <div className="d-flex align-items-center gap-2">
-                <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className="text-secondary"
-                >
-                    <i className="fas fa-chevron-left"></i>
-                </Button>
+                <Button variant="link" size="sm" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="text-secondary"><i className="fas fa-chevron-left"></i></Button>
                 {renderPageNumbers()}
-                <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className="text-secondary"
-                >
-                    <i className="fas fa-chevron-right"></i>
-                </Button>
+                <Button variant="link" size="sm" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="text-secondary"><i className="fas fa-chevron-right"></i></Button>
             </div>
         </div>
     );
@@ -455,12 +460,65 @@ const RoadmapsManagement = ({ setPageLoading }) => {
 
   return (
     <div className="">
-      <Row className="mb-4 align-items-center">
-        <Col>
-          <h1 className="h3 mb-0">Roadmaps Management</h1>
-          <p className="text-muted mb-0">Manage and publish database roadmaps.</p>
+      <div id="date-picker-portal" style={{ zIndex: 9999 }}></div>
+      <Row className="mb-4 align-items-center justify-content-between">
+        <Col lg="auto">
+          <Row className="g-3">
+             <Col xs="auto">
+                <Card className="border-0 shadow-sm h-100">
+                    <Card.Body className="d-flex align-items-center p-3">
+                        <div className="bg-primary bg-opacity-10 rounded-circle p-3 me-3">
+                            <i className="fas fa-route fa-lg text-primary"></i>
+                        </div>
+                        <div>
+                            <div className="fs-4 fw-bold">{dashboardStats.totalRoadmaps}</div>
+                            <div className="text-muted small">Total Roadmaps</div>
+                        </div>
+                    </Card.Body>
+                </Card>
+            </Col>
+            <Col xs="auto">
+                <Card className="border-0 shadow-sm h-100" onClick={() => setShowCrmDetailsModal(true)} style={{ cursor: 'pointer' }}>
+                    <Card.Body className="d-flex align-items-center p-3">
+                        <div className="bg-success bg-opacity-10 rounded-circle p-3 me-3">
+                            <i className="fas fa-user-tie fa-lg text-success"></i>
+                        </div>
+                        <div>
+                            <div className="fs-4 fw-bold text-primary">{dashboardStats.uniqueCRMs}</div>
+                            <div className="text-muted small">Unique CRMs Assigned</div>
+                        </div>
+                    </Card.Body>
+                </Card>
+            </Col>
+            <Col xs="auto">
+                <Card className="border-0 shadow-sm h-100">
+                    <Card.Body className="d-flex align-items-center p-3">
+                        <div className="bg-warning bg-opacity-10 rounded-circle p-3 me-3">
+                            <i className="fas fa-users-cog fa-lg text-warning"></i>
+                        </div>
+                        <div>
+                            <div className="fs-4 fw-bold">{dashboardStats.totalRoles}</div>
+                            <div className="text-muted small">Total Roles Defined</div>
+                        </div>
+                    </Card.Body>
+                </Card>
+            </Col>
+             <Col xs="auto">
+                <Card className="border-0 shadow-sm h-100">
+                    <Card.Body className="d-flex align-items-center p-3">
+                        <div className="bg-info bg-opacity-10 rounded-circle p-3 me-3">
+                            <i className="fas fa-layer-group fa-lg text-info"></i>
+                        </div>
+                        <div>
+                            <div className="fs-4 fw-bold">{dashboardStats.uniqueTechStacks}</div>
+                            <div className="text-muted small">Unique Tech Stacks</div>
+                        </div>
+                    </Card.Body>
+                </Card>
+            </Col>
+          </Row>
         </Col>
-        <Col xs="auto">
+        <Col lg="auto" className="mt-3 mt-lg-0">
           {user.role === 'admin' && (
             <Button 
               variant="primary" 
@@ -485,48 +543,49 @@ const RoadmapsManagement = ({ setPageLoading }) => {
 
       <Card className="mb-4 border-0 shadow-sm">
         <Card.Body>
-          <Row className="g-3 align-items-center">
-            <Col md={5}>
-              <Form.Label htmlFor="roadmapSearchInput" className="small fw-medium">Search Roadmaps</Form.Label>
-              <InputGroup>
-                <InputGroup.Text><i className="fas fa-search text-muted"></i></InputGroup.Text>
-                <Form.Control
-                  id="roadmapSearchInput"
-                  type="text" 
-                  placeholder="Search roadmaps..." 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                 {searchTerm && (
-                   <Button variant="outline-secondary" onClick={() => setSearchTerm('')} aria-label="Clear search">
-                     <i className="fas fa-times"></i>
-                   </Button>
-                 )}
-              </InputGroup>
+          <Row className="g-3 align-items-end">
+            <Col xl={3}>
+              <Form.Group>
+                <Form.Label className="small fw-medium">Search Roadmaps</Form.Label>
+                <InputGroup>
+                  <InputGroup.Text><i className="fas fa-search text-muted"></i></InputGroup.Text>
+                  <Form.Control type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                </InputGroup>
+              </Form.Group>
             </Col>
-            <Col md={3}>
-              <Form.Label htmlFor="companyFilterSelect" className="small fw-medium">Filter by Company</Form.Label>
-              <Form.Select id="companyFilterSelect" value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)}>
-                <option value="">All Companies</option>
-                {uniqueCompaniesForFilter.map(company => <option key={company} value={company}>{company}</option>)}
-              </Form.Select>
+            <Col xl={2}>
+              <Form.Group>
+                <Form.Label className="small fw-medium">Company</Form.Label>
+                <Form.Select value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)}>
+                  <option value="">All Companies</option>
+                  {uniqueCompaniesForFilter.map(company => <option key={company} value={company}>{company}</option>)}
+                </Form.Select>
+              </Form.Group>
             </Col>
-            <Col md={2}>
-              <Form.Label htmlFor="roleFilterSelect" className="small fw-medium">Filter by Role</Form.Label>
-              <Form.Select id="roleFilterSelect" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
-                <option value="">All Roles</option>
-                {uniqueRolesForFilter.map(roleTitle => <option key={roleTitle} value={roleTitle}>{roleTitle}</option>)}
-              </Form.Select>
+            <Col xl={2}>
+              <Form.Group>
+                <Form.Label className="small fw-medium">Role</Form.Label>
+                <Form.Select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+                  <option value="">All Roles</option>
+                  {uniqueRolesForFilter.map(roleTitle => <option key={roleTitle} value={roleTitle}>{roleTitle}</option>)}
+                </Form.Select>
+              </Form.Group>
             </Col>
-            <Col md={2} className="d-flex align-items-end">
-                <Button 
-                  variant="outline-secondary" 
-                  onClick={fetchRoadmapsData} 
-                  className="w-100" 
-                  disabled={loading || actionLoading}
-                >
-                    <i className={`fas fa-sync-alt me-1 ${(loading || actionLoading) ? 'fa-spin' : ''}`}></i> 
-                    Refresh
+            <Col xl={2}>
+                <Form.Group>
+                    <Form.Label className="small fw-medium">From Date</Form.Label>
+                    <DatePicker selected={startDate} onChange={date => setStartDate(date)} className="form-control" placeholderText="Start Date" isClearable portalId="date-picker-portal" popperPlacement="bottom-start" />
+                </Form.Group>
+            </Col>
+            <Col xl={2}>
+                <Form.Group>
+                    <Form.Label className="small fw-medium">To Date</Form.Label>
+                    <DatePicker selected={endDate} onChange={date => setEndDate(date)} className="form-control" placeholderText="End Date" minDate={startDate} isClearable portalId="date-picker-portal" popperPlacement="bottom-start" />
+                </Form.Group>
+            </Col>
+            <Col xl={1}>
+                <Button variant="outline-secondary" onClick={fetchRoadmapsData} className="w-100" disabled={loading || actionLoading}>
+                    <i className={`fas fa-sync-alt ${(loading || actionLoading) ? 'fa-spin' : ''}`}></i> 
                 </Button>
             </Col>
           </Row>
@@ -562,7 +621,7 @@ const RoadmapsManagement = ({ setPageLoading }) => {
                         <div className="mb-3"><i className="fas fa-route fa-3x text-muted"></i></div>
                         <h5 className="mb-1">No Roadmaps Found</h5>
                         <p className="text-muted small">
-                          {searchTerm || companyFilter || roleFilter ? "Try adjusting your search or filter criteria." : "No roadmaps have been created yet."}
+                          {searchTerm || companyFilter || roleFilter || startDate || endDate ? "Try adjusting your search or filter criteria." : "No roadmaps have been created yet."}
                         </p>
                       </td>
                     </tr>
@@ -875,6 +934,43 @@ const RoadmapsManagement = ({ setPageLoading }) => {
             {actionLoading ? <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-1" /> : null}
             {actionLoading ? 'Deleting...' : 'Yes, Delete Roadmap'}
           </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* CRM Details Modal */}
+      <Modal show={showCrmDetailsModal} onHide={() => setShowCrmDetailsModal(false)} centered>
+        <Modal.Header closeButton>
+            <Modal.Title>
+                <i className="fas fa-user-tie me-2"></i>
+                CRM Roadmap Counts
+            </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+            {crmStats.length > 0 ? (
+                <Table striped bordered hover size="sm">
+                    <thead>
+                        <tr>
+                            <th>CRM Name</th>
+                            <th>Roadmaps Assigned</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {crmStats.map(stat => (
+                            <tr key={stat.crmName}>
+                                <td className="fw-medium">{stat.crmName}</td>
+                                <td className="text-center">{stat.count}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </Table>
+            ) : (
+                <div className="text-center text-muted">No roadmaps are currently assigned to any CRMs.</div>
+            )}
+        </Modal.Body>
+        <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowCrmDetailsModal(false)}>
+                Close
+            </Button>
         </Modal.Footer>
       </Modal>
 
