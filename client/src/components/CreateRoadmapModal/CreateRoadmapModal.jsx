@@ -7,7 +7,9 @@ import { saveRoadmapMetadata } from '../../services/roadmapService';
 import { uploadToGithub } from '../../services/githubService';
 import { generateRoadmapHtml } from '../../utils/roadmapHtmlGenerator';
 import useAuth from '../../hooks/useAuth'; 
-import userService from '../../services/userService'; 
+import userService from '../../services/userService';
+
+const FOUNDATION_TRAINING_STACKS = ["HTML,CSS,BootStrap", "Javascript", "Python", "SQL", "Tailwind CSS"];
 
 const CreateRoadmapModal = ({ show, onHide, onRoadmapCreated }) => {
   const { user } = useAuth(); 
@@ -25,8 +27,10 @@ const CreateRoadmapModal = ({ show, onHide, onRoadmapCreated }) => {
   const [allTechStackOptions, setAllTechStackOptions] = useState([]); // Stores { _id, name } for dropdown
   const [loadingDropdownOptions, setLoadingDropdownOptions] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false); // Generic action loading state
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [includeFoundationTraining, setIncludeFoundationTraining] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState('');
   const [crmUsers, setCrmUsers] = useState([]); // Added
 
@@ -34,6 +38,7 @@ const CreateRoadmapModal = ({ show, onHide, onRoadmapCreated }) => {
     if (show) {
       setRoadmapDetails(initialRoadmapState);
       setError(null);
+      setIncludeFoundationTraining(false);
       setSuccess(null);
       setPublishedUrl('');
       setLoadingDropdownOptions(true);
@@ -62,6 +67,13 @@ const CreateRoadmapModal = ({ show, onHide, onRoadmapCreated }) => {
     }
   }, [show, user]); // Added user to dependency array
 
+  const handleAddNew = () => {
+    // Reset the form state to allow for a new roadmap creation
+    setRoadmapDetails(initialRoadmapState);
+    setPublishedUrl('');
+    setError(null);
+  };
+
   useEffect(() => {
     if (!publishedUrl) {
       if (roadmapDetails.companyName) {
@@ -81,6 +93,36 @@ const CreateRoadmapModal = ({ show, onHide, onRoadmapCreated }) => {
       }
     }
   }, [roadmapDetails.companyName, roadmapDetails.filename, publishedUrl]);
+
+  useEffect(() => {
+    // This effect manages the auto-addition/removal of the Foundation Training role
+    // when the corresponding checkbox is toggled in consolidated mode.
+
+    // Only apply this logic if consolidated mode is active
+    if (!roadmapDetails.isConsolidated) {
+      return;
+    }
+
+    if (includeFoundationTraining) {
+      // Add the foundation role if checkbox is checked
+      const foundationRole = {
+        id: 'foundation-role', // A special static ID to identify this role
+        title: 'Foundation Training',
+        selectedTechStacks: FOUNDATION_TRAINING_STACKS
+      };
+
+      setRoadmapDetails(prev => ({
+        ...prev,
+        consolidatedRoles: [foundationRole, ...prev.consolidatedRoles.filter(r => r.id !== 'foundation-role')]
+      }));
+    } else {
+      // Remove the foundation role if checkbox is unchecked
+      setRoadmapDetails(prev => ({
+        ...prev,
+        consolidatedRoles: prev.consolidatedRoles.filter(r => r.id !== 'foundation-role')
+      }));
+    }
+  }, [includeFoundationTraining, roadmapDetails.isConsolidated]);
 
 
   const handleInputChange = (e) => {
@@ -253,7 +295,6 @@ const CreateRoadmapModal = ({ show, onHide, onRoadmapCreated }) => {
       
       await saveRoadmapMetadata(metadataToSave);
 
-      setSuccess('Roadmap created and published successfully!');
       if (onRoadmapCreated) {
         onRoadmapCreated();
       }
@@ -281,7 +322,7 @@ const CreateRoadmapModal = ({ show, onHide, onRoadmapCreated }) => {
       <Form onSubmit={handleSubmit}>
         <Modal.Body style={{ maxHeight: '70vh', overflowY: 'auto' }}>
           {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
-          {success && !publishedUrl && <Alert variant="success" onClose={() => setSuccess(null)} dismissible>{success}</Alert>}
+          {success && <Alert variant="success" onClose={() => setSuccess(null)} dismissible>{success}</Alert>}
 
           {publishedUrl ? (
             <div className="text-center py-4">
@@ -290,7 +331,7 @@ const CreateRoadmapModal = ({ show, onHide, onRoadmapCreated }) => {
                     <i className="fas fa-check fa-2x"></i>
                   </div>
                   <h4>Roadmap Published!</h4>
-                  <p className="text-muted">{success}</p> {/* Shows "Roadmap created and published successfully!" or copy message */}
+                  <p className="text-muted">{success}</p> 
                 </div>
                 
                 <div className="bg-light p-3 rounded mb-3">
@@ -359,6 +400,18 @@ const CreateRoadmapModal = ({ show, onHide, onRoadmapCreated }) => {
                     checked={roadmapDetails.isConsolidated} onChange={handleInputChange}
                 />
               </Form.Group>
+              
+              {roadmapDetails.isConsolidated && (
+                  <Form.Group className="mb-3 ms-4">
+                    <Form.Check 
+                        type="switch"
+                        id="foundationTrainingSwitch"
+                        label="Include Foundation Training"
+                        checked={includeFoundationTraining}
+                        onChange={(e) => setIncludeFoundationTraining(e.target.checked)}
+                    />
+                  </Form.Group>
+              )}
 
               {!roadmapDetails.isConsolidated ? (
                 <>
@@ -380,43 +433,43 @@ const CreateRoadmapModal = ({ show, onHide, onRoadmapCreated }) => {
                 </>
               ) : (
                 <>
-                  <h5 className="mt-4 mb-2">Configure Consolidated Roles</h5>
                   {roadmapDetails.consolidatedRoles.map((role, index) => (
-                    <Card key={role.id} className="mb-3 p-3 bg-light border" style={{ overflow: 'visible', position: 'relative' }}>
-                        <Row className="g-2 align-items-end">
-                            <Col md={5}>
-                                <Form.Group>
-                                    <Form.Label className="small">Role Title #{index + 1} <span className="text-danger">*</span></Form.Label>
-                                    <Form.Control type="text" value={role.title} 
-                                        onChange={(e) => handleConsolidatedRoleChange(index, 'title', e.target.value)} required 
-                                    />
-                                </Form.Group>
-                            </Col>
-                            <Col md={6}>
-                                <Form.Group style={{ position: 'relative' }}>
-                                    <Form.Label className="small">Tech Stacks for {role.title || `Role ${index + 1}`} <span className="text-danger">*</span></Form.Label>
-                                    <TechStackDropdown
-                                        techStacks={allTechStackOptions}
-                                        selectedTechStacks={role.selectedTechStacks}
-                                        onSelect={(names) => handleConsolidatedRoleTechStackSelect(index, names)}
-                                        loading={loadingDropdownOptions}
-                                        isFormField={true}
-                                    />
-                                </Form.Group>
-                            </Col>
-                            <Col md={1} className="d-flex align-items-center justify-content-center">
-                                {roadmapDetails.consolidatedRoles.length > 1 && (
-                                    <Button variant="outline-danger" size="sm" onClick={() => removeConsolidatedRole(role.id)} title="Remove Role" className="w-100" style={{ marginTop: '1.5rem' }}>
-                                        <i className="fas fa-times"></i>
-                                    </Button>
-                                )}
-                            </Col>
-                        </Row>
-                    </Card>
+                    (() => {
+                        const isFoundationRole = role.id === 'foundation-role';
+                        return (
+                          <Card key={role.id} className="mb-3 p-3 bg-light border" style={{ overflow: 'visible', position: 'relative' }}>
+                              <Row className="g-2 align-items-end">
+                                  <Col md={5}>
+                                      <Form.Group>
+                                          <Form.Label className="small">Role Title #{index + 1} <span className="text-danger">*</span></Form.Label>
+                                          <Form.Control type="text" value={role.title}
+                                              onChange={(e) => handleConsolidatedRoleChange(index, 'title', e.target.value)} required
+                                          />
+                                      </Form.Group>
+                                  </Col>
+                                  <Col md={6}>
+                                      <Form.Label className="small">Tech Stacks for {role.title || `Role ${index + 1}`} <span className="text-danger">*</span></Form.Label>
+                                      <TechStackDropdown
+                                          techStacks={allTechStackOptions}
+                                          selectedTechStacks={role.selectedTechStacks}
+                                          onSelect={(names) => handleConsolidatedRoleTechStackSelect(index, names)}
+                                          loading={loadingDropdownOptions}
+                                          isFormField={true}
+                                      />
+                                  </Col>
+                                  <Col md={1} className="d-flex align-items-center justify-content-center">
+                                      <Button variant="outline-danger" size="sm" onClick={() => removeConsolidatedRole(role.id)} title="Remove Role" className="w-100" style={{ marginTop: '1.5rem' }} disabled={isFoundationRole}>
+                                          <i className="fas fa-times"></i>
+                                      </Button>
+                                  </Col>
+                              </Row>
+                          </Card>
+                        );
+                      })()
                   ))}
-                  <Button variant="outline-success" size="sm" onClick={addConsolidatedRole} className="mt-1">
-                    <i className="fas fa-plus me-1"></i> Add Another Role
-                  </Button>
+                  <Button variant="outline-success" size="sm" onClick={addConsolidatedRole} className="mt-1" disabled={actionLoading || uploadLoading}>
+                     <i className="fas fa-plus me-1"></i> Add Another Role
+                   </Button>
                 </>
               )}
             </>
@@ -436,10 +489,10 @@ const CreateRoadmapModal = ({ show, onHide, onRoadmapCreated }) => {
            {publishedUrl && (
               <Button 
                 variant="primary" 
-                onClick={() => window.open(publishedUrl, '_blank')}
+                onClick={handleAddNew}
               >
-                <i className="fas fa-external-link-alt me-2"></i>
-                View Roadmap
+                <i className="fas fa-plus me-2"></i>
+                Add roadmap
               </Button>
             )}
         </Modal.Footer>
