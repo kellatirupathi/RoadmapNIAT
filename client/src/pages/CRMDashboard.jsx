@@ -1,8 +1,10 @@
 // client/src/pages/CRMDashboard.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Row, Col, Button, Table, Badge, Spinner, Alert, Form, InputGroup, Modal } from 'react-bootstrap';
 import useAuth from '../hooks/useAuth';
 import * as roadmapService from '../services/roadmapService';
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
 
 const CRMDashboard = ({ setPageLoading }) => {
   const { user } = useAuth(); 
@@ -13,12 +15,18 @@ const CRMDashboard = ({ setPageLoading }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [companyFilter, setCompanyFilter] = useState('');
   const [companies, setCompanies] = useState([]);
+  
+  // Date filter state
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
 
   // State for the company details modal
   const [showCompanyDetailsModal, setShowCompanyDetailsModal] = useState(false);
   const [selectedRoadmapForDetails, setSelectedRoadmapForDetails] = useState(null);
 
-  const dashboardDisplayName = user?.username || user?.firstName || "User";
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   
   useEffect(() => {
     const fetchRoadmaps = async () => {
@@ -52,6 +60,23 @@ const CRMDashboard = ({ setPageLoading }) => {
     fetchRoadmaps();
   }, [setPageLoading]);
 
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, companyFilter, startDate, endDate]);
+
+  // Calculate dashboard summary statistics
+  const dashboardStats = useMemo(() => {
+    if (!roadmaps || roadmaps.length === 0) {
+      return { totalRoadmaps: 0, totalCompanies: 0, totalRoles: 0, uniqueTechStacks: 0 };
+    }
+    const totalRoadmaps = roadmaps.length;
+    const totalCompanies = new Set(roadmaps.map(r => r.companyName)).size;
+    const totalRoles = roadmaps.reduce((acc, roadmap) => acc + (roadmap.isConsolidated ? roadmap.roles?.length || 0 : 1), 0);
+    const uniqueTechStacks = new Set(roadmaps.flatMap(r => r.techStacks || [])).size;
+    return { totalRoadmaps, totalCompanies, totalRoles, uniqueTechStacks };
+  }, [roadmaps]);
+
   const filteredRoadmaps = roadmaps.filter(roadmap => {
     const searchLower = searchTerm.toLowerCase();
     const searchMatch = 
@@ -71,8 +96,29 @@ const CRMDashboard = ({ setPageLoading }) => {
     
     const companyMatch = companyFilter ? roadmap.companyName === companyFilter : true;
     
-    return searchMatch && companyMatch;
+    // Date filter logic
+    const roadmapDate = new Date(roadmap.createdDate);
+    let dateMatch = true;
+    if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        if (roadmapDate < start) dateMatch = false;
+    }
+    if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        if (roadmapDate > end) dateMatch = false;
+    }
+
+    return searchMatch && companyMatch && dateMatch;
   });
+
+  const paginatedData = useMemo(() => {
+    if (loading) return [];
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return filteredRoadmaps.slice(startIndex, endIndex);
+  }, [filteredRoadmaps, currentPage, rowsPerPage, loading]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -117,7 +163,6 @@ const CRMDashboard = ({ setPageLoading }) => {
             setCompanies([]);
         }
         if (setPageLoading) setPageLoading(false);
-        setSuccess("Roadmaps refreshed."); 
         setTimeout(() => setSuccess(null), 2000); 
     }).catch(err => {
         console.error('Failed to refresh roadmaps:', err);
@@ -126,12 +171,136 @@ const CRMDashboard = ({ setPageLoading }) => {
     });
   }
 
+  const PaginationControls = ({ totalRows }) => {
+    const totalPages = Math.ceil(totalRows / rowsPerPage);
+
+    const handleRowsPerPageChange = (e) => {
+        setRowsPerPage(Number(e.target.value));
+        setCurrentPage(1); // Reset to first page
+    };
+
+    const handlePageChange = (page) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+        }
+    };
+
+    if (totalPages <= 1) return null;
+
+    const renderPageNumbers = () => {
+        const pageNumbers = [];
+        let startPage, endPage;
+        const maxButtons = 4;
+
+        if (totalPages <= maxButtons) {
+            startPage = 1;
+            endPage = totalPages;
+        } else {
+            if (currentPage <= 2) {
+                startPage = 1;
+                endPage = maxButtons;
+            } else if (currentPage + 1 >= totalPages) {
+                startPage = totalPages - maxButtons + 1;
+                endPage = totalPages;
+            } else {
+                startPage = currentPage - 1;
+                endPage = currentPage + (maxButtons - 2);
+            }
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            pageNumbers.push(
+                <Button key={i} variant={currentPage === i ? 'primary' : 'outline-secondary'} size="sm" onClick={() => handlePageChange(i)} className="mx-1 rounded-circle" style={{width: '28px', height: '28px'}}>
+                    {i}
+                </Button>
+            );
+        }
+        return pageNumbers;
+    };
+  
+    return (
+        <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div className="d-flex align-items-center gap-2">
+                <Form.Select size="sm" value={rowsPerPage} onChange={handleRowsPerPageChange} style={{width: 'auto'}}>
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                </Form.Select>
+            </div>
+
+            <div className="d-flex align-items-center gap-2">
+                <span className="text-muted small">
+                    Page {currentPage} of {totalPages}
+                </span>
+                <Button variant="link" size="sm" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="text-secondary">
+                    <i className="fas fa-chevron-left"></i>
+                </Button>
+                {renderPageNumbers()}
+                <Button variant="link" size="sm" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="text-secondary">
+                    <i className="fas fa-chevron-right"></i>
+                </Button>
+            </div>
+        </div>
+    );
+  };
+
   return (
     <div className="">
-      <div className="mb-4">
-        <h1 className="h3 mb-0">{dashboardDisplayName}'s Dashboard</h1>
-        <p className="text-muted">View all published roadmaps</p>
-      </div>
+      <div id="date-picker-portal" style={{ zIndex: 9999 }}></div>
+      <Row className="g-3 mb-4">
+        <Col md={6} lg={3}>
+            <Card className="border-0 shadow-sm h-100">
+                <Card.Body className="d-flex align-items-center">
+                    <div className="bg-primary bg-opacity-10 rounded-circle p-3 me-3">
+                        <i className="fas fa-route fa-lg text-primary"></i>
+                    </div>
+                    <div>
+                        <div className="fs-4 fw-bold">{dashboardStats.totalRoadmaps}</div>
+                        <div className="text-muted small">Total Roadmaps</div>
+                    </div>
+                </Card.Body>
+            </Card>
+        </Col>
+        <Col md={6} lg={3}>
+            <Card className="border-0 shadow-sm h-100">
+                <Card.Body className="d-flex align-items-center">
+                    <div className="bg-info bg-opacity-10 rounded-circle p-3 me-3">
+                        <i className="fas fa-building fa-lg text-info"></i>
+                    </div>
+                    <div>
+                        <div className="fs-4 fw-bold">{dashboardStats.totalCompanies}</div>
+                        <div className="text-muted small">Companies Managed</div>
+                    </div>
+                </Card.Body>
+            </Card>
+        </Col>
+        <Col md={6} lg={3}>
+            <Card className="border-0 shadow-sm h-100">
+                <Card.Body className="d-flex align-items-center">
+                    <div className="bg-warning bg-opacity-10 rounded-circle p-3 me-3">
+                        <i className="fas fa-user-tie fa-lg text-warning"></i>
+                    </div>
+                    <div>
+                        <div className="fs-4 fw-bold">{dashboardStats.totalRoles}</div>
+                        <div className="text-muted small">Roles Defined</div>
+                    </div>
+                </Card.Body>
+            </Card>
+        </Col>
+        <Col md={6} lg={3}>
+            <Card className="border-0 shadow-sm h-100">
+                <Card.Body className="d-flex align-items-center">
+                    <div className="bg-success bg-opacity-10 rounded-circle p-3 me-3">
+                        <i className="fas fa-layer-group fa-lg text-success"></i>
+                    </div>
+                    <div>
+                        <div className="fs-4 fw-bold">{dashboardStats.uniqueTechStacks}</div>
+                        <div className="text-muted small">Unique Tech Stacks</div>
+                    </div>
+                </Card.Body>
+            </Card>
+        </Col>
+      </Row>
       
       {error && (
         <Alert variant="danger" onClose={() => setError(null)} dismissible className="shadow-sm">
@@ -149,52 +318,29 @@ const CRMDashboard = ({ setPageLoading }) => {
       <Card className="border-0 shadow-sm mb-4">
         <Card.Body>
           <Row className="g-3 align-items-center">
-            <Col md={6} lg={5}>
+            <Col xl={3}>
               <InputGroup>
-                <InputGroup.Text>
-                  <i className="fas fa-search"></i>
-                </InputGroup.Text>
-                <Form.Control
-                  placeholder="Search roadmaps..."
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                />
-                {searchTerm && (
-                  <Button 
-                    variant="outline-secondary" 
-                    onClick={() => setSearchTerm('')}
-                    aria-label="Clear search"
-                  >
-                    <i className="fas fa-times"></i>
-                  </Button>
-                )}
+                <InputGroup.Text><i className="fas fa-search"></i></InputGroup.Text>
+                <Form.Control placeholder="Search..." value={searchTerm} onChange={handleSearchChange}/>
               </InputGroup>
             </Col>
-            
-            <Col md={6} lg={4}>
-              <Form.Select 
-                value={companyFilter} 
-                onChange={handleCompanyFilterChange}
-                aria-label="Filter by company"
-              >
+            <Col xl={3}>
+              <Form.Select value={companyFilter} onChange={handleCompanyFilterChange} aria-label="Filter by company">
                 <option value="">All Companies</option>
                 {companies.map((company, index) => (
-                  <option key={index} value={company}>
-                    {company}
-                  </option>
+                  <option key={index} value={company}>{company}</option>
                 ))}
               </Form.Select>
             </Col>
-            
-            <Col md={12} lg={3}>
-              <Button 
-                variant="outline-primary"
-                className="w-100"
-                onClick={refreshData}
-                disabled={loading}
-              >
-                <i className="fas fa-sync-alt me-2"></i>
-                Refresh
+            <Col xl={2}>
+              <DatePicker selected={startDate} onChange={date => setStartDate(date)} className="form-control" placeholderText="From Date" isClearable portalId="date-picker-portal" popperPlacement="bottom-start" />
+            </Col>
+            <Col xl={2}>
+              <DatePicker selected={endDate} onChange={date => setEndDate(date)} className="form-control" placeholderText="To Date" minDate={startDate} isClearable portalId="date-picker-portal" popperPlacement="bottom-start" />
+            </Col>
+            <Col xl={2}>
+              <Button variant="outline-primary" className="w-100" onClick={refreshData} disabled={loading}>
+                <i className="fas fa-sync-alt me-2"></i> Refresh
               </Button>
             </Col>
           </Row>
@@ -210,7 +356,7 @@ const CRMDashboard = ({ setPageLoading }) => {
               </Spinner>
               <p className="mt-3 text-muted fs-5">Loading roadmaps...</p>
             </div>
-          ) : filteredRoadmaps.length > 0 ? (
+          ) : paginatedData.length > 0 ? (
             <div className="table-responsive">
               <Table hover className="m-0">
                 <thead className="bg-light">
@@ -225,7 +371,7 @@ const CRMDashboard = ({ setPageLoading }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRoadmaps.map((roadmap) => (
+                  {paginatedData.map((roadmap) => (
                     <tr key={roadmap._id}>
                       <td className="fw-medium align-middle">
                         <Button 
@@ -310,25 +456,30 @@ const CRMDashboard = ({ setPageLoading }) => {
               <i className="fas fa-road fa-3x text-muted mb-3"></i>
               <h4>No Roadmaps Found</h4>
               <p className="text-muted">
-                {searchTerm || companyFilter 
+                {searchTerm || companyFilter || startDate || endDate
                   ? "No roadmaps match your search criteria. Try adjusting your filters."
                   : "There are no published roadmaps available at this time."
                 }
               </p>
-              {(searchTerm || companyFilter) && (
+              {(searchTerm || companyFilter || startDate || endDate) && (
                 <Button 
                   variant="outline-secondary"
                   onClick={() => {
                     setSearchTerm('');
                     setCompanyFilter('');
+                    setStartDate(null);
+                    setEndDate(null);
                   }}
                 >
-                  Clear Filters
+                  Clear All Filters
                 </Button>
               )}
             </div>
           )}
         </Card.Body>
+        <Card.Footer className="bg-light border-top">
+            <PaginationControls totalRows={filteredRoadmaps.length} />
+        </Card.Footer>
       </Card>
 
       {/* Company Details Modal */}
@@ -440,6 +591,9 @@ const CRMDashboard = ({ setPageLoading }) => {
         }
         .fs-0_8rem {
             font-size: 0.8rem !important;
+        }
+        .react-datepicker-popper {
+          z-index: 1055 !important; /* Higher than modal z-index (1050) */
         }
       `}</style>
     </div>
