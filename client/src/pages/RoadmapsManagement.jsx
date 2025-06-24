@@ -429,7 +429,7 @@ const RoadmapsManagement = ({ setPageLoading }) => {
 
         for (let i = startPage; i <= endPage; i++) {
             pageNumbers.push(
-                <Button key={i} variant={currentPage === i ? 'primary' : 'outline-secondary'} size="sm" onClick={() => handlePageChange(i)} className="mx-1 rounded-circle" style={{width: '28px', height: '28px'}}>
+                <Button key={i} variant={currentPage === i ? 'primary' : 'outline-secondary'} size="sm" onClick={() => handlePageChange(i)} className="mx-1 rounded-circle d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px' }}>
                     {i}
                 </Button>
             );
