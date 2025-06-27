@@ -792,7 +792,7 @@ const InternshipsTracker = () => {
         
         if (['student-wise-progress', 'critical-points'].includes(activeSheet)) {
             return (
-                <><Card className="mt-4 shadow-sm"><Card.Header as="h6" className="bg-light">{subsheetConfigs[activeSheet].name} Data</Card.Header><Card.Body className="p-0"> <div className="table-container-scroll"><EditableTable columns={columns} data={paginatedData} onSave={user.role === 'admin' ? handleSaveRow : undefined} onDelete={user.role === 'admin' ? openDeleteRowModal : undefined} isLoading={actionLoading || loading} allowAdd={false} activeSheet={activeSheet} /></div><PaginationControls totalRows={sheetData.length} /></Card.Body></Card></>
+                <><Card className="mt-4 shadow-sm"><Card.Header as="h6" className="bg-light">{subsheetConfigs[activeSheet].name} Data</Card.Header><Card.Body className="p-0"> <div className="table-container-scroll"><EditableTable columns={columns} data={paginatedData} onSave={user.role === 'admin' ? handleSaveRow : undefined} onDelete={user.role === 'admin' ? openDeleteRowModal : undefined} isLoading={actionLoading || loading} allowAdd={true} activeSheet={activeSheet} onAdd={handleSaveFromModal(activeSheet)} /></div><PaginationControls totalRows={sheetData.length} /></Card.Body></Card></>
             );
         }
     };
