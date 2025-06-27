@@ -206,7 +206,7 @@ const UserManagement = () => {
     if (!techStacks || techStacks.length === 0) {
       return <span className="text-muted small">N/A</span>;
     }
-    if (techStacks.length <= 2) {
+    if (techStacks.length <= 1) {
         return techStacks.map(ts => (
             <Badge key={ts._id} bg="light" text="dark" className="me-1 mb-1 border fw-normal">{ts.name}</Badge>
         ));
