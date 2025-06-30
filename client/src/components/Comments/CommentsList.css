@@ -1,0 +1,11 @@
+/* client/src/components/Comments/CommentsList.css */
+
+.comment-card {
+    border-radius: .5rem;
+  }
+  .delete-comment-btn i {
+      transition: color 0.2s ease-in-out;
+  }
+  .delete-comment-btn:hover i {
+      color: #dc3545 !important; /* Use Bootstrap's danger color directly */
+  }
