@@ -21,8 +21,9 @@ const CompanyStatusSchema = new mongoose.Schema({
   // Removed overallCompanyProbability and closingStatus. They are now derived in the UI.
 }, { timestamps: true });
 
-// Add an index for faster queries by company and role.
-CompanyStatusSchema.index({ companyName: 1, role: 1 }, { unique: true });
+// The unique constraint has been removed as per the requirement to allow duplicate entries
+// for the same company and role combination. The index is kept for query performance.
+CompanyStatusSchema.index({ companyName: 1, role: 1 });
 
 const CompanyStatus = mongoose.model('CompanyStatus', CompanyStatusSchema);
 export default CompanyStatus;
