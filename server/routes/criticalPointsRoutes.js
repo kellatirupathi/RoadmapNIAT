@@ -1,22 +1,22 @@
 // server/routes/criticalPointsRoutes.js
 import express from 'express';
 import { interactionsController, companyStatusController } from '../controllers/criticalPointsController.js';
-import { protect } from '../middleware/auth.js';
+import { protect, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Custom authorization middleware for this page's features
 const authorizeCriticalPoints = (req, res, next) => {
   const user = req.user;
-  const isViewOnly = user.role === 'manager';
-  const hasAccess = user.role === 'admin' || user.role === 'crm' || (user.role === 'instructor' && user.canAccessCriticalPoints) || isViewOnly;
+  const isManagerViewOnly = user.role === 'manager'; 
+  const hasAccess = user.role === 'admin' || user.role === 'crm' || (user.role === 'instructor' && user.canAccessCriticalPoints) || isManagerViewOnly;
   
   if (!hasAccess) {
     return res.status(403).json({ success: false, error: 'You are not authorized to access this resource.' });
   }
   
-  // Prevent mutating requests (POST, PUT, DELETE) from view-only roles
-  if (['POST', 'PUT', 'DELETE'].includes(req.method) && isViewOnly) {
+  // Prevent mutating requests from view-only roles
+  if (['POST', 'PUT', 'DELETE'].includes(req.method) && isManagerViewOnly) {
      return res.status(403).json({ success: false, error: 'You have view-only access.' });
   }
   
@@ -27,33 +27,21 @@ router.use(protect);
 router.use(authorizeCriticalPoints);
 
 // Interaction Feedback Main Routes
-router.route('/interactions')
-  .get(interactionsController.getAll)
-  .post(interactionsController.create);
-
-router.route('/interactions/:id')
-  .put(interactionsController.update)
-  .delete(interactionsController.delete);
-
-// Route for bulk creating interaction feedback records
+router.route('/interactions').get(interactionsController.getAll).post(interactionsController.create);
+router.route('/interactions/:id').put(interactionsController.update).delete(interactionsController.delete);
 router.post('/interactions/bulk', interactionsController.bulkCreate);
 
-
-// Routes for Nested Interaction Sub-documents
+// Nested Interaction Sub-document Routes
 router.post('/interactions/:id/sub', interactionsController.addInteraction);
 router.put('/interactions/:id/sub/:subId', interactionsController.updateSubInteraction);
 router.delete('/interactions/:id/sub/:subId', interactionsController.deleteSubInteraction);
 
-// Company Status Routes
-router.route('/company-status')
-  .get(companyStatusController.getAll)
-  .post(companyStatusController.create);
-  
-router.route('/company-status/:id')
-  .put(companyStatusController.update)
-  .delete(companyStatusController.delete);
-
-// Route for bulk creating company status records
+// Company Status Main Routes
+router.route('/company-status').get(companyStatusController.getAll).post(companyStatusController.create);
+router.route('/company-status/:id').put(companyStatusController.update).delete(companyStatusController.delete);
 router.post('/company-status/bulk', companyStatusController.bulkCreate);
+
+// --- NEW ROUTE for updating student's hiring status ---
+router.put('/company-status/:companyId/students/:studentId/status', companyStatusController.updateStudentOverallStatus);
 
 export default router;
