@@ -1,12 +1,15 @@
 // server/controllers/criticalPointsController.js
 import InteractionFeedback from '../models/InteractionFeedback.js';
 import CompanyStatus from '../models/CompanyStatus.js';
+import PostInternship from '../models/PostInternship.js'; // --- IMPORT POSTINTERNSHIP MODEL ---
 
 // Helper to normalize CSV keys
 const transformKeysToLower = (obj) => {
     const newObj = {};
     for (const key in obj) {
-        newObj[key.toLowerCase().trim()] = obj[key];
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            newObj[key.toLowerCase().trim()] = obj[key];
+        }
     }
     return newObj;
 };
@@ -67,35 +70,15 @@ const createCRUDController = (Model) => ({
             dataRows.forEach(row => {
                 const lcRow = transformKeysToLower(row);
                 const company = lcRow.company;
-                const role = lcRow.role;
-                if (!company || !role) return;
-
+                if (!company) return;
+                const role = lcRow.role || '';
                 const key = `${company}|${role}`;
-                
-                // If this is the first time we see this company/role, create the main record
                 if (!interactionMap.has(key)) {
-                    interactionMap.set(key, {
-                        company,
-                        role,
-                        roadmapReviewByCompany: lcRow['roadmap review by company'],
-                        roadmapChangesStatus: lcRow['roadmap changes status'],
-                        feedbackImplementationStatus: lcRow['feedback implementation status'] || 'Yet to Implement',
-                        interactions: [], // Initialize the logs array
-                    });
+                    interactionMap.set(key, { company, role, roadmapReviewByCompany: lcRow['roadmap review by company'], roadmapChangesStatus: lcRow['roadmap changes status'], feedbackImplementationStatus: lcRow['feedback implementation status'] || 'Yet to Implement', interactions: [] });
                 }
-                
-                // Get the parent record
                 const record = interactionMap.get(key);
-                
-                // Add the interaction log from the current row
                 if (lcRow['interaction type'] || lcRow['interaction overall remarks']) {
-                    record.interactions.push({
-                        interactionType: lcRow['interaction type'] || 'General',
-                        interactionAttendees: lcRow['interaction attendees'],
-                        interactionSummary: lcRow['interaction summary'] || 'Neutral',
-                        interactionOverallRemarks: lcRow['interaction overall remarks'],
-                        date: lcRow.date ? new Date(lcRow.date) : new Date(),
-                    });
+                    record.interactions.push({ interactionType: lcRow['interaction type'] || 'General', interactionAttendees: lcRow['interaction attendees'], interactionSummary: lcRow['interaction summary'] || 'Neutral', interactionOverallRemarks: lcRow['interaction overall remarks'], date: lcRow.date ? new Date(lcRow.date) : new Date() });
                 }
             });
             documentsToInsert = Array.from(interactionMap.values());
@@ -106,28 +89,11 @@ const createCRUDController = (Model) => ({
                 const lcRow = transformKeysToLower(row);
                 const companyName = lcRow['company name'];
                 const role = lcRow.role;
-                if (!companyName || !role) return; // Skip invalid rows
-
+                if (!companyName || !role) return;
                 const key = `${companyName}|${role}`;
-                if (!companyStatusMap.has(key)) {
-                    companyStatusMap.set(key, {
-                        companyName,
-                        role,
-                        openings: parseInt(lcRow.openings, 10) || 1,
-                        students: [],
-                    });
-                }
+                if (!companyStatusMap.has(key)) { companyStatusMap.set(key, { companyName, role, openings: parseInt(lcRow.openings, 10) || 1, students: [] }); }
                 const record = companyStatusMap.get(key);
-                
-                if (lcRow['student name']) {
-                    record.students.push({
-                        studentName: lcRow['student name'],
-                        niatId: lcRow['niat id'],
-                        technicalScore: parseFloat(lcRow['technical score']) || 0,
-                        sincerityScore: parseFloat(lcRow['sincerity score']) || 0,
-                        communicationScore: parseFloat(lcRow['communication score']) || 0,
-                    });
-                }
+                if (lcRow['student name']) { record.students.push({ studentName: lcRow['student name'], niatId: lcRow['niat id'], technicalScore: parseFloat(lcRow['technical score']) || 0, sincerityScore: parseFloat(lcRow['sincerity score']) || 0, communicationScore: parseFloat(lcRow['communication score']) || 0 }); }
             });
             documentsToInsert = Array.from(companyStatusMap.values());
         }
@@ -142,14 +108,72 @@ const createCRUDController = (Model) => ({
   }
 });
 
-
-// Create controllers for both models
 const interactionsController = createCRUDController(InteractionFeedback);
 const companyStatusController = createCRUDController(CompanyStatus);
 
-// --- SPECIFIC CONTROLLERS FOR NESTED INTERACTIONS ---
+// --- START: NEW CONTROLLER FUNCTION FOR STUDENT STATUS ---
+companyStatusController.updateStudentOverallStatus = async (req, res) => {
+    const { companyId, studentId } = req.params;
+    const { newStatus } = req.body;
 
-// ADD a new interaction to a record
+    try {
+        const companyRecord = await CompanyStatus.findById(companyId);
+        if (!companyRecord) {
+            return res.status(404).json({ success: false, error: 'Company record not found' });
+        }
+        
+        const student = companyRecord.students.id(studentId);
+        if (!student) {
+            return res.status(404).json({ success: false, error: 'Student not found within the company record' });
+        }
+        
+        // Update the student's status
+        student.overallStatus = newStatus;
+        await companyRecord.save();
+
+        const postInternshipQuery = {
+            companyName: companyRecord.companyName,
+            role: companyRecord.role,
+        };
+        // Use niatId for uniqueness check only if it's provided and not empty
+        if (student.niatId && student.niatId.trim() !== '') {
+            postInternshipQuery.niatId = student.niatId;
+        } else {
+            postInternshipQuery.studentName = student.studentName; // Fallback to studentName if niatId is missing
+        }
+
+        if (newStatus === 'Hired') {
+            // Check if already exists to prevent duplicates
+            const existingHiredRecord = await PostInternship.findOne(postInternshipQuery);
+            
+            if (!existingHiredRecord) {
+                // Calculate derived probability for the record
+                const overallStudentProbability = Math.round(((parseFloat(student.technicalScore) || 0) + (parseFloat(student.sincerityScore) || 0) + (parseFloat(student.communicationScore) || 0)) / 3);
+                
+                await PostInternship.create({
+                    ...postInternshipQuery,
+                    studentName: student.studentName,
+                    openings: companyRecord.openings,
+                    technicalScore: student.technicalScore,
+                    sincerityScore: student.sincerityScore,
+                    communicationScore: student.communicationScore,
+                    overallStudentProbability: overallStudentProbability
+                });
+            }
+        } else {
+            // If status is Hold, Reject, or empty, remove the record from PostInternships
+            await PostInternship.findOneAndDelete(postInternshipQuery);
+        }
+
+        res.status(200).json({ success: true, data: companyRecord });
+    } catch (error) {
+        console.error('Error updating student overall status:', error);
+        res.status(500).json({ success: false, error: 'Server Error: ' + error.message });
+    }
+};
+// --- END: NEW CONTROLLER FUNCTION ---
+
+// ... (Rest of interactionsController for sub-documents)
 interactionsController.addInteraction = async (req, res) => {
   try {
     const feedback = await InteractionFeedback.findById(req.params.id);
@@ -161,8 +185,6 @@ interactionsController.addInteraction = async (req, res) => {
     res.status(400).json({ success: false, error: 'Failed to add interaction: ' + error.message });
   }
 };
-
-// UPDATE a specific interaction sub-document
 interactionsController.updateSubInteraction = async (req, res) => {
     try {
         const { id, subId } = req.params;
@@ -172,17 +194,13 @@ interactionsController.updateSubInteraction = async (req, res) => {
         const subInteraction = feedback.interactions.id(subId);
         if (!subInteraction) return res.status(404).json({ success: false, error: 'Sub-interaction not found' });
 
-        // Update fields from request body
         Object.assign(subInteraction, req.body);
-        
         await feedback.save();
         res.status(200).json({ success: true, data: feedback });
     } catch (error) {
         res.status(400).json({ success: false, error: 'Failed to update sub-interaction: ' + error.message });
     }
 };
-
-// DELETE a specific interaction sub-document
 interactionsController.deleteSubInteraction = async (req, res) => {
     try {
         const { id, subId } = req.params;
@@ -191,9 +209,7 @@ interactionsController.deleteSubInteraction = async (req, res) => {
             { $pull: { interactions: { _id: subId } } },
             { new: true }
         );
-
         if (!feedback) return res.status(404).json({ success: false, error: 'Record not found' });
-        
         res.status(200).json({ success: true, data: feedback });
     } catch (error) {
         res.status(500).json({ success: false, error: 'Server Error: ' + error.message });
