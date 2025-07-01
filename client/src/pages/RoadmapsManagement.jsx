@@ -3,15 +3,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Table, Button, Spinner, Alert, Modal, Form, Badge, Card, Row, Col, InputGroup, Dropdown, ProgressBar, Tab, Nav, Pagination } from 'react-bootstrap';
 import useAuth from '../hooks/useAuth';
 import * as roadmapService from '../services/roadmapService';
-import { getAllTechStacks as fetchAllTechStackOptionsForDropdown, getTechStackByName } from '../services/techStackService';
-import TechStackDropdown from '../components/TechStackDropdown/TechStackDropdown';
-import CreateRoadmapModal from '../components/CreateRoadmapModal/CreateRoadmapModal';
-import { generateRoadmapHtml } from '../utils/roadmapHtmlGenerator.js';
-import { uploadToGithub } from '../services/githubService';
 import userService from '../services/userService';
+import CreateRoadmapModal from '../components/CreateRoadmapModal/CreateRoadmapModal';
 import TechStackTable from '../components/TechStackTable/TechStackTable';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
+import Papa from 'papaparse'; // **Import papaparse for CSV generation**
 
 // Helper component for displaying lists with a dropdown for overflow
 const OverflowDropdownDisplay = ({ items, label }) => {
@@ -19,14 +16,12 @@ const OverflowDropdownDisplay = ({ items, label }) => {
     return <span className="text-muted small">N/A</span>;
   }
 
-  // Display the first item directly
   if (items.length <= 1) {
     return items.map((item, i) => (
       <Badge key={i} bg="light" text="dark" className="me-1 border fw-normal">{item}</Badge>
     ));
   }
 
-  // Use a dropdown for more than two items
   return (
     <Dropdown size="sm">
       <Dropdown.Toggle variant="outline-secondary" id={`dropdown-${label}`} className="py-1 px-2 rounded-pill">
@@ -60,7 +55,6 @@ ActionMenuToggle.displayName = 'ActionMenuToggle';
 const RoadmapsManagement = ({ setPageLoading }) => {
   const { user } = useAuth();
   const [roadmaps, setRoadmaps] = useState([]);
-  const [allTechStackOptions, setAllTechStackOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -68,16 +62,7 @@ const RoadmapsManagement = ({ setPageLoading }) => {
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingRoadmap, setEditingRoadmap] = useState(null);
-  const [currentRoadmapData, setCurrentRoadmapData] = useState({
-    companyName: '',
-    role: '',
-    techStacks: [],
-    isConsolidated: false,
-    roles: [{ id: Date.now(), title: '', techStacks: [] }],
-    publishedUrl: '',
-    filename: '',
-    crmAffiliation: '',
-  });
+  const [activeEditTab, setActiveEditTab] = useState('settings');
 
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedRoadmapForDetails, setSelectedRoadmapForDetails] = useState(null);
@@ -93,42 +78,12 @@ const RoadmapsManagement = ({ setPageLoading }) => {
   const [roleFilter, setRoleFilter] = useState('');
   const [crmUsers, setCrmUsers] = useState([]);
 
-  // Date filter state
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-
-  const fetchRoadmapsData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      if (setPageLoading) setPageLoading(true);
-
-      const response = await roadmapService.getAllRoadmaps();
-      setRoadmaps(response.data || []);
-
-    } catch (err) {
-      setError('Failed to load roadmaps. ' + (err.response?.data?.error || err.message));
-    } finally {
-      setLoading(false);
-      if (setPageLoading) setPageLoading(false);
-    }
-  };
-
-  const fetchCrmUsersForDropdowns = async () => {
-    if (user && user.role === 'admin') {
-        try {
-            const response = await userService.getUsers();
-            setCrmUsers(response.data.filter(u => u.role === 'crm' && u.username));
-        } catch (err) {
-            console.error("Failed to load CRM users for dropdown:", err);
-        }
-    }
-  }
-  
   const fetchRoadmapsAndUsers = async () => {
     try {
       setLoading(true); setError(null);
@@ -172,26 +127,10 @@ const RoadmapsManagement = ({ setPageLoading }) => {
     }
     
     const crmSet = new Set(roadmaps.map(r => r.crmAffiliation).filter(Boolean));
-    
-    const totalRoles = roadmaps.reduce((acc, roadmap) => {
-        if (roadmap.isConsolidated) {
-            return acc + (roadmap.roles?.length || 0);
-        }
-        return acc + 1;
-    }, 0);
-    
-    const techStackNameSet = new Set(
-        roadmaps.flatMap(r => 
-            (r.isConsolidated ? (r.roles || []).flatMap(role => role.techStacks || []) : (r.techStacks || [])).map(ts => ts?.name).filter(Boolean)
-        )
-    );
+    const totalRoles = roadmaps.reduce((acc, roadmap) => acc + (roadmap.isConsolidated ? roadmap.roles?.length || 0 : 1), 0);
+    const techStackNameSet = new Set(roadmaps.flatMap(r => (r.isConsolidated ? (r.roles || []).flatMap(role => role.techStacks || []) : (r.techStacks || [])).map(ts => ts?.name).filter(Boolean)));
 
-    return {
-        totalRoadmaps: roadmaps.length,
-        uniqueCRMs: crmSet.size,
-        totalRoles,
-        uniqueTechStacks: techStackNameSet.size,
-    };
+    return { totalRoadmaps: roadmaps.length, uniqueCRMs: crmSet.size, totalRoles, uniqueTechStacks: techStackNameSet.size };
   }, [roadmaps]);
   
   const crmStats = useMemo(() => {
@@ -206,14 +145,11 @@ const RoadmapsManagement = ({ setPageLoading }) => {
     const stats = roadmaps.reduce((acc, roadmap) => {
       const crmKey = roadmap.crmAffiliation;
       const crmDisplayName = crmKey ? (crmDisplayNameMap.get(crmKey) || crmKey) : 'Unassigned';
-  
       acc[crmDisplayName] = (acc[crmDisplayName] || 0) + 1;
       return acc;
     }, {});
   
-    return Object.entries(stats)
-      .map(([crmName, count]) => ({ crmName, count }))
-      .sort((a, b) => b.count - a.count);
+    return Object.entries(stats).map(([crmName, count]) => ({ crmName, count })).sort((a, b) => b.count - a.count);
   }, [roadmaps, crmUsers]);
 
   const handleEditClick = (roadmap) => {
@@ -332,12 +268,59 @@ const RoadmapsManagement = ({ setPageLoading }) => {
       }
   };
 
+  const handleExportCSV = () => {
+    if (filteredRoadmaps.length === 0) {
+      alert("No data available to export based on the current filters.");
+      return;
+    }
+
+    const dataForCSV = [];
+    filteredRoadmaps.forEach(roadmap => {
+      const commonData = {
+        'Company Name': roadmap.companyName,
+        'Filename': roadmap.filename,
+        'Published URL': roadmap.publishedUrl,
+        'Assigned CRM': crmUsers.find(c => c.username === roadmap.crmAffiliation)?.displayName || roadmap.crmAffiliation || 'N/A',
+        'Created Date': formatDate(roadmap.createdDate),
+        'Overall Status (%)': calculateRoadmapStatus(roadmap).percentage
+      };
+
+      if (roadmap.isConsolidated && roadmap.roles && roadmap.roles.length > 0) {
+        roadmap.roles.forEach(roleDetail => {
+          dataForCSV.push({
+            ...commonData,
+            'Roadmap Type': 'Consolidated',
+            'Role Title': roleDetail.title,
+            'Tech Stacks': (roleDetail.techStacks || []).map(ts => ts.name).join('; ')
+          });
+        });
+      } else {
+        dataForCSV.push({
+          ...commonData,
+          'Roadmap Type': 'Single',
+          'Role Title': roadmap.role,
+          'Tech Stacks': (roadmap.techStacks || []).map(ts => ts.name).join('; ')
+        });
+      }
+    });
+
+    const csv = Papa.unparse(dataForCSV);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `roadmaps_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const PaginationControls = ({ totalRows }) => {
     const totalPages = Math.ceil(totalRows / rowsPerPage);
 
     const handleRowsPerPageChange = (e) => {
         setRowsPerPage(Number(e.target.value));
-        setCurrentPage(1); // Reset to first page
+        setCurrentPage(1);
     };
 
     const handlePageChange = (page) => {
@@ -349,69 +332,39 @@ const RoadmapsManagement = ({ setPageLoading }) => {
     if (totalPages <= 1) return null;
 
     let items = [];
-    const pageRange = 2; // Number of pages to show around current page
+    const pageRange = 2;
     let startPage = Math.max(1, currentPage - pageRange);
     let endPage = Math.min(totalPages, currentPage + pageRange);
 
-    if (currentPage - pageRange <= 1) {
-        endPage = Math.min(totalPages, 1 + pageRange * 2);
-    }
+    if (currentPage - pageRange <= 1) { endPage = Math.min(totalPages, 1 + pageRange * 2); }
+    if (currentPage + pageRange >= totalPages) { startPage = Math.max(1, totalPages - pageRange * 2); }
 
-    if (currentPage + pageRange >= totalPages) {
-        startPage = Math.max(1, totalPages - pageRange * 2);
-    }
-
-    for (let number = startPage; number <= endPage; number++) {
-        items.push(
-            <Pagination.Item key={number} active={number === currentPage} onClick={() => handlePageChange(number)}>
-                {number}
-            </Pagination.Item>,
-        );
-    }
+    for (let number = startPage; number <= endPage; number++) { items.push(<Pagination.Item key={number} active={number === currentPage} onClick={() => handlePageChange(number)}>{number}</Pagination.Item>); }
     
     return (
         <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div className="d-flex align-items-center gap-2">
-                <Form.Select size="sm" value={rowsPerPage} onChange={handleRowsPerPageChange} style={{width: 'auto'}}>
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                </Form.Select>
-                 <span className="text-muted small">
-                    Showing {((currentPage-1)*rowsPerPage) + 1} - {Math.min(currentPage*rowsPerPage, totalRows)} of {totalRows} roadmaps
-                </span>
+                <Form.Select size="sm" value={rowsPerPage} onChange={handleRowsPerPageChange} style={{width: 'auto'}}><option value="10">10</option><option value="20">20</option><option value="50">50</option><option value="100">100</option></Form.Select>
+                 <span className="text-muted small">Showing {((currentPage-1)*rowsPerPage) + 1} - {Math.min(currentPage*rowsPerPage, totalRows)} of {totalRows} roadmaps</span>
             </div>
-
             <Pagination size="sm" className="mb-0">
                 <Pagination.First onClick={() => handlePageChange(1)} disabled={currentPage === 1} />
                 <Pagination.Prev onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} />
-                {startPage > 1 && (
-                    <>
-                        <Pagination.Item onClick={() => handlePageChange(1)}>1</Pagination.Item>
-                        {startPage > 2 && <Pagination.Ellipsis disabled />}
-                    </>
-                )}
+                {startPage > 1 && (<><Pagination.Item onClick={() => handlePageChange(1)}>1</Pagination.Item>{startPage > 2 && <Pagination.Ellipsis disabled />}</>)}
                 {items}
-                {endPage < totalPages && (
-                     <>
-                        {endPage < totalPages - 1 && <Pagination.Ellipsis disabled />}
-                        <Pagination.Item onClick={() => handlePageChange(totalPages)}>{totalPages}</Pagination.Item>
-                    </>
-                )}
+                {endPage < totalPages && (<><Pagination.Ellipsis disabled />{endPage < totalPages - 1 && <Pagination.Item onClick={() => handlePageChange(totalPages)}>{totalPages}</Pagination.Item>}</>)}
                 <Pagination.Next onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} />
                 <Pagination.Last onClick={() => handlePageChange(totalPages)} disabled={currentPage === totalPages} />
             </Pagination>
         </div>
     );
-};
+  };
 
 
   return (
     <div>
       <div id="datepicker-portal"></div>
       
-      {/* ----- REPLACEMENT OF HEADER TEXT WITH STATS CARDS ----- */}
       <Row className="g-3 mb-4">
         {[
           { title: "Total Roadmaps", value: dashboardStats.totalRoadmaps, icon: "fa-route", color: "primary" },
@@ -439,20 +392,20 @@ const RoadmapsManagement = ({ setPageLoading }) => {
       <Card className="border-0 shadow-sm">
         <Card.Header className="bg-white p-3 d-flex justify-content-between align-items-center">
           <h5 className="mb-0">Roadmap Directory</h5>
-          {user.role === 'admin' && (
-            <Button variant="primary" onClick={() => setShowCreateModal(true)} size="sm">
-              <i className="fas fa-plus me-2"></i>Create New Roadmap
+          <div className="d-flex gap-2">
+            <Button variant="outline-success" onClick={handleExportCSV} size="sm">
+                <i className="fas fa-file-csv me-2"></i>Export as CSV
             </Button>
-          )}
+            {user.role === 'admin' && (
+              <Button variant="primary" onClick={() => setShowCreateModal(true)} size="sm">
+                <i className="fas fa-plus me-2"></i>Create New Roadmap
+              </Button>
+            )}
+          </div>
         </Card.Header>
         <Card.Body>
             <Row className="g-2 mb-3 align-items-end">
-                <Col lg={4}>
-                  <InputGroup>
-                      <InputGroup.Text><i className="fas fa-search text-muted"></i></InputGroup.Text>
-                      <Form.Control type="text" placeholder="Search Company, Role.." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-                  </InputGroup>
-                </Col>
+                <Col lg={4}><InputGroup><InputGroup.Text><i className="fas fa-search text-muted"></i></InputGroup.Text><Form.Control type="text" placeholder="Search Company, Role.." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></InputGroup></Col>
                 <Col><Form.Select value={companyFilter} onChange={e => setCompanyFilter(e.target.value)}><option value="">All Companies</option>{uniqueCompanies.map(c => <option key={c} value={c}>{c}</option>)}</Form.Select></Col>
                 <Col><Form.Select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}><option value="">All Roles</option>{uniqueRoles.map(r => <option key={r} value={r}>{r}</option>)}</Form.Select></Col>
                 <Col><DatePicker selected={startDate} onChange={date => setStartDate(date)} className="form-control" isClearable placeholderText="Start Date" portalId="datepicker-portal" popperPlacement="bottom-start" /></Col>
