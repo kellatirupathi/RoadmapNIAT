@@ -1,4 +1,5 @@
 // client/src/pages/CRMDashboard.jsx
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Row, Col, Button, Table, Badge, Spinner, Alert, Form, InputGroup, Modal } from 'react-bootstrap';
 import useAuth from '../hooks/useAuth';
@@ -34,7 +35,6 @@ const CRMDashboard = ({ setPageLoading }) => {
         setLoading(true);
         if (setPageLoading) setPageLoading(true);
         
-        // This response should now have roles.techStacks populated with { _id, name } objects
         const response = await roadmapService.getAllRoadmaps();
         setRoadmaps(Array.isArray(response.data) ? response.data : []);
         
@@ -60,12 +60,10 @@ const CRMDashboard = ({ setPageLoading }) => {
     fetchRoadmaps();
   }, [setPageLoading]);
 
-  // Reset to page 1 whenever filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, companyFilter, startDate, endDate]);
 
-  // Calculate dashboard summary statistics
   const dashboardStats = useMemo(() => {
     if (!roadmaps || roadmaps.length === 0) {
       return { totalRoadmaps: 0, totalCompanies: 0, totalRoles: 0, uniqueTechStacks: 0 };
@@ -73,30 +71,30 @@ const CRMDashboard = ({ setPageLoading }) => {
     const totalRoadmaps = roadmaps.length;
     const totalCompanies = new Set(roadmaps.map(r => r.companyName)).size;
     const totalRoles = roadmaps.reduce((acc, roadmap) => acc + (roadmap.isConsolidated ? roadmap.roles?.length || 0 : 1), 0);
-    const uniqueTechStacks = new Set(roadmaps.flatMap(r => r.techStacks || [])).size;
+    // FIX: Access `ts.name` as techStacks are objects.
+    const uniqueTechStacks = new Set(roadmaps.flatMap(r => (r.techStacks || []).map(ts => ts.name))).size;
     return { totalRoadmaps, totalCompanies, totalRoles, uniqueTechStacks };
   }, [roadmaps]);
 
   const filteredRoadmaps = roadmaps.filter(roadmap => {
     const searchLower = searchTerm.toLowerCase();
+    // FIX: Access `stack.name` because `techStacks` contains objects.
     const searchMatch = 
       (roadmap.companyName || '').toLowerCase().includes(searchLower) ||
       (roadmap.isConsolidated ? 'consolidated' : (roadmap.role || '')).toLowerCase().includes(searchLower) ||
       (roadmap.filename || '').toLowerCase().includes(searchLower) ||
-      (roadmap.techStacks && roadmap.techStacks.some(stackName => // This is overall (array of strings)
-        (stackName || '').toLowerCase().includes(searchLower)
+      (roadmap.techStacks && roadmap.techStacks.some(stack => 
+        (stack.name || '').toLowerCase().includes(searchLower)
       )) ||
       (roadmap.isConsolidated && roadmap.roles && roadmap.roles.some(roleDetail => 
         (roleDetail.title || '').toLowerCase().includes(searchLower) ||
-        // Search within populated techStack names for consolidated roles
-        (roleDetail.techStacks && Array.isArray(roleDetail.techStacks) && roleDetail.techStacks.some(tsObject => // Ensure techStacks is array
+        (roleDetail.techStacks && Array.isArray(roleDetail.techStacks) && roleDetail.techStacks.some(tsObject => 
             tsObject && (tsObject.name || '').toLowerCase().includes(searchLower)
         ))
       ));
     
     const companyMatch = companyFilter ? roadmap.companyName === companyFilter : true;
     
-    // Date filter logic
     const roadmapDate = new Date(roadmap.createdDate);
     let dateMatch = true;
     if (startDate) {
@@ -176,7 +174,7 @@ const CRMDashboard = ({ setPageLoading }) => {
 
     const handleRowsPerPageChange = (e) => {
         setRowsPerPage(Number(e.target.value));
-        setCurrentPage(1); // Reset to first page
+        setCurrentPage(1);
     };
 
     const handlePageChange = (page) => {
@@ -371,7 +369,14 @@ const CRMDashboard = ({ setPageLoading }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedData.map((roadmap) => (
+                  {paginatedData.map((roadmap) => {
+                    {/* START FIX: Aggregate all tech stack names for rendering */}
+                    const allTechStackNames = roadmap.isConsolidated
+                      ? [...new Set((roadmap.roles || []).flatMap(role => (role.techStacks || []).map(ts => ts.name)))]
+                      : (roadmap.techStacks || []).map(stack => stack.name);
+                    {/* END FIX */}
+
+                    return (
                     <tr key={roadmap._id}>
                       <td className="fw-medium align-middle">
                         <Button 
@@ -409,25 +414,27 @@ const CRMDashboard = ({ setPageLoading }) => {
                       <td className="align-middle">{roadmap.filename}</td>
                       <td className="align-middle">
                         <div className="d-flex flex-wrap gap-1" style={{maxWidth: '250px'}}>
-                          {roadmap.techStacks && roadmap.techStacks.slice(0, 3).map((stack, i) => (
+                          {/* START FIX: Render tech stack names from the aggregated list */}
+                          {allTechStackNames.slice(0, 3).map((stackName, i) => (
                             <Badge 
                               key={i} 
                               bg="light" 
                               text="dark"
                               className="border border-secondary-subtle fw-normal"
                             >
-                              {stack}
+                              {stackName}
                             </Badge>
                           ))}
-                          {roadmap.techStacks && roadmap.techStacks.length > 3 && (
+                          {allTechStackNames.length > 3 && (
                              <Badge 
                               bg="light" 
                               text="dark"
                               className="border border-secondary-subtle fw-normal"
                             >
-                              +{roadmap.techStacks.length - 3} more
+                              +{allTechStackNames.length - 3} more
                             </Badge>
                           )}
+                          {/* END FIX */}
                         </div>
                       </td>
                       <td className="align-middle">
@@ -447,7 +454,7 @@ const CRMDashboard = ({ setPageLoading }) => {
                         </a>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </Table>
             </div>
@@ -482,7 +489,6 @@ const CRMDashboard = ({ setPageLoading }) => {
         </Card.Footer>
       </Card>
 
-      {/* Company Details Modal */}
       <Modal show={showCompanyDetailsModal} onHide={handleCloseCompanyDetailsModal} size="lg" centered>
         <Modal.Header closeButton>
           <Modal.Title>
@@ -533,9 +539,9 @@ const CRMDashboard = ({ setPageLoading }) => {
                         <td><strong>{roleItem.title}</strong></td>
                         <td>
                           {roleItem.techStacks && roleItem.techStacks.length > 0 ? (
+                            // FIX: Access `ts.name` as `techStacks` are now embedded objects
                             roleItem.techStacks.map((ts, stackIdx) => (
                                 <Badge key={ts?._id || stackIdx} bg="light" text="dark" className="border me-1 mb-1 fw-normal">
-                                    {/* Now ts is an object { _id, name } due to population */}
                                     {ts && ts.name ? ts.name : "Unknown Tech Stack"} 
                                 </Badge>
                             ))
@@ -559,9 +565,9 @@ const CRMDashboard = ({ setPageLoading }) => {
                         <tr>
                             <td><strong>{selectedRoadmapForDetails.role}</strong></td>
                             <td>
-                                {selectedRoadmapForDetails.techStacks.map((stackName, stackIdx) => ( // techStacks is array of strings here
-                                    <Badge key={stackIdx} bg="light" text="dark" className="border me-1 mb-1 fw-normal">
-                                        {stackName}
+                                {selectedRoadmapForDetails.techStacks.map((stack, stackIdx) => ( // stack is an object
+                                    <Badge key={stack._id || stackIdx} bg="light" text="dark" className="border me-1 mb-1 fw-normal">
+                                        {stack.name}
                                     </Badge>
                                 ))}
                             </td>
@@ -593,7 +599,7 @@ const CRMDashboard = ({ setPageLoading }) => {
             font-size: 0.8rem !important;
         }
         .react-datepicker-popper {
-          z-index: 1055 !important; /* Higher than modal z-index (1050) */
+          z-index: 1055 !important;
         }
       `}</style>
     </div>
