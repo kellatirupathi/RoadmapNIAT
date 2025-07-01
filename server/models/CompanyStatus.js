@@ -8,8 +8,13 @@ const StudentStatusSchema = new mongoose.Schema({
   // Raw scores are stored. Calculation will happen on the frontend.
   technicalScore: { type: Number, default: 0, min: 0, max: 100 },
   sincerityScore: { type: Number, default: 0, min: 0, max: 100 },
-  communicationScore: { type: Number, default: 0, min: 0, max: 100 }
-  // Removed overallProbability as it will be calculated on the fly.
+  communicationScore: { type: Number, default: 0, min: 0, max: 100 },
+  // New field to track the student's final hiring status
+  overallStatus: {
+    type: String,
+    enum: ['Hired', 'Hold', 'Reject', ''],
+    default: ''
+  }
 }, { _id: true });
 
 // Main schema for the "Company Status" records.
@@ -18,11 +23,8 @@ const CompanyStatusSchema = new mongoose.Schema({
   role: { type: String, required: true, trim: true },
   openings: { type: Number, required: true, default: 1 },
   students: [StudentStatusSchema]
-  // Removed overallCompanyProbability and closingStatus. They are now derived in the UI.
 }, { timestamps: true });
 
-// The unique constraint has been removed as per the requirement to allow duplicate entries
-// for the same company and role combination. The index is kept for query performance.
 CompanyStatusSchema.index({ companyName: 1, role: 1 });
 
 const CompanyStatus = mongoose.model('CompanyStatus', CompanyStatusSchema);
