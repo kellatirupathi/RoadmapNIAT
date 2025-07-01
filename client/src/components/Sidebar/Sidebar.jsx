@@ -438,7 +438,7 @@ const Sidebar = ({ isOpen, toggleSidebar, setPageLoading }) => {
     }
     // Content Team
     else if(user.role === 'content') {
-       if(hasTechStackViewAccess && !linkSet.has('/alltechstacks')) navLinks.push({ to: "/alltechstacks", icon: "M4 7h16v2H4V7zm0 4h16v2H4v-2zm0 4h16v2H4v-2z", label: "Tech Stacks" });
+       // if(hasTechStackViewAccess && !linkSet.has('/alltechstacks')) navLinks.push({ to: "/alltechstacks", icon: "M4 7h16v2H4V7zm0 4h16v2H4v-2zm0 4h16v2H4v-2z", label: "Tech Stacks" });
        if(canCreateTechStack && !linkSet.has('/newtechstack')) navLinks.push({ to: "/newtechstack", type: 'button', icon: "M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2h6z", label: "New Tech Stack" });
     }
     // Manager
