@@ -4,7 +4,7 @@ import { Table, Button, Spinner, Alert, Card, Modal, Form, Row, Col, InputGroup 
 import { companyStatusService } from '../../services/criticalPointsService.js';
 import Papa from 'papaparse';
 
-// --- Reusable Modal Component ---
+// Reusable Modal Component for creating/editing entire company records
 const CompanyStatusModal = ({ show, handleClose, isEditing, data, onSave, loading }) => {
     const [formData, setFormData] = useState(JSON.parse(JSON.stringify(data)));
 
@@ -73,23 +73,24 @@ const CompanyStatusModal = ({ show, handleClose, isEditing, data, onSave, loadin
     );
 };
 
-// --- Main Component for the Companies Status Tab ---
+// Main Component
 const CompaniesStatus = ({ data, canEdit, onUpdate }) => {
     const [loading, setLoading] = useState(false);
+    const [actionLoading, setActionLoading] = useState(false);
     const [error, setError] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [recordToDelete, setRecordToDelete] = useState(null);
     const [currentRecord, setCurrentRecord] = useState(null);
-
-    // --- STATES for CSV Upload ---
+    
+    // States for CSV upload
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [uploadingCsv, setUploadingCsv] = useState(false);
     const [csvError, setCsvError] = useState('');
     const [csvData, setCsvData] = useState([]);
     const [csvHeaders, setCsvHeaders] = useState([]);
     const fileInputRef = useRef(null);
-    
+
     const processedData = useMemo(() => {
         return data.map(item => {
             const studentsWithAvg = item.students.map(student => {
@@ -99,76 +100,55 @@ const CompaniesStatus = ({ data, canEdit, onUpdate }) => {
                 const avg = Math.round((tech + sincere + comm) / 3);
                 return { ...student, overallEachStudentProbability: avg };
             });
-
-            const totalProbability = studentsWithAvg.reduce((sum, student) => sum + student.overallEachStudentProbability, 0);
+            const totalProbability = studentsWithAvg.reduce((sum, s) => sum + s.overallEachStudentProbability, 0);
             const overallCompanyProbability = studentsWithAvg.length > 0 ? Math.round(totalProbability / studentsWithAvg.length) : 0;
-            
-            let closingStatus = 'Risk';
-            if (overallCompanyProbability >= 90) closingStatus = 'Can Close';
-            else if (overallCompanyProbability >= 70) closingStatus = 'Moderate';
-            
-            return {
-                ...item,
-                students: studentsWithAvg,
-                overallCompanyProbability,
-                closingStatus,
-            };
+            const closingStatus = overallCompanyProbability >= 90 ? 'Can Close' : overallCompanyProbability >= 70 ? 'Moderate' : 'Risk';
+            return { ...item, students: studentsWithAvg, overallCompanyProbability, closingStatus };
         });
     }, [data]);
     
-    const getStatusColorClass = (status) => {
-        switch (status) {
-            case 'Can Close': return 'text-success';
-            case 'Moderate': return 'text-warning';
-            case 'Risk': return 'text-danger';
-            default: return 'text-muted';
-        }
-    };
-    
     const handleShowModal = (record = null) => {
-      setError(null);
-      const initialData = record || { companyName: '', role: '', openings: 1, students: [{studentName: '', niatId: '', technicalScore: '', sincerityScore: '', communicationScore: '' }] };
-      setCurrentRecord(initialData);
-      setShowModal(true);
+        setError(null);
+        setCurrentRecord(record || { companyName: '', role: '', openings: 1, students: [{studentName: '', niatId: '', technicalScore: '', sincerityScore: '', communicationScore: '' }] });
+        setShowModal(true);
     };
 
     const handleSave = async (formData) => {
-        setLoading(true);
-        setError(null);
+        setLoading(true); setError(null);
         try {
-            const payload = {...formData, students: formData.students.map(s => ({...s, technicalScore: parseFloat(s.technicalScore) || 0, sincerityScore: parseFloat(s.sincerityScore) || 0, communicationScore: parseFloat(s.communicationScore) || 0 })) };
-            if (formData._id) await companyStatusService.update(formData._id, payload);
-            else await companyStatusService.create(payload);
+            if (formData._id) await companyStatusService.update(formData._id, formData);
+            else await companyStatusService.create(formData);
             onUpdate();
             setShowModal(false);
-        } catch (err) {
-            setError(err.response?.data?.error || 'Failed to save record.');
-        } finally {
-            setLoading(false);
-        }
+        } catch (err) { setError(err.response?.data?.error || 'Failed to save record.'); } 
+        finally { setLoading(false); }
     };
 
-    const handleDeleteClick = (record) => {
-        setRecordToDelete(record);
-        setShowDeleteConfirm(true);
-    };
+    const handleDeleteClick = (record) => { setRecordToDelete(record); setShowDeleteConfirm(true); };
 
     const confirmDelete = async () => {
-        if (!recordToDelete) return;
+        if (!recordToDelete) return; 
         setLoading(true);
         try {
             await companyStatusService.delete(recordToDelete._id);
             onUpdate();
+        } catch (err) { setError(err.response?.data?.error || 'Failed to delete record.'); }
+        finally { setLoading(false); setShowDeleteConfirm(false); setRecordToDelete(null); }
+    };
+    
+    const handleOverallStatusChange = async (companyId, studentId, newStatus) => {
+        setActionLoading(true);
+        setError(null);
+        try {
+            await companyStatusService.updateStudentStatus(companyId, studentId, newStatus);
+            onUpdate(); 
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to delete record.');
+            setError(err.response?.data?.error || "An error occurred while updating status.");
         } finally {
-            setLoading(false);
-            setShowDeleteConfirm(false);
-            setRecordToDelete(null);
+            setActionLoading(false);
         }
     };
-
-    // --- NEW CSV HANDLERS ---
+    
     const handleOpenUploadModal = () => {
         setCsvData([]);
         setCsvHeaders([]);
@@ -180,13 +160,11 @@ const CompaniesStatus = ({ data, canEdit, onUpdate }) => {
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (!file) {
-            setCsvData([]);
-            setCsvHeaders([]);
+            setCsvData([]); setCsvHeaders([]);
             return;
         }
         Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
+            header: true, skipEmptyLines: true,
             complete: (results) => {
                 setCsvHeaders(results.meta.fields || []);
                 setCsvData(results.data);
@@ -197,62 +175,42 @@ const CompaniesStatus = ({ data, canEdit, onUpdate }) => {
     };
 
     const handleSaveCsvData = async () => {
-        if (!csvData.length) {
-            setCsvError('No data to upload.');
-            return;
-        }
-        setUploadingCsv(true);
-        setCsvError('');
-        setError('');
+        if (!csvData.length) { setCsvError('No data to upload.'); return; }
+        setUploadingCsv(true); setCsvError(''); setError('');
         try {
             await companyStatusService.bulkUpload(csvData);
-            setShowUploadModal(false);
-            onUpdate(); // Refresh parent data
-        } catch (err) {
-            setCsvError(err.response?.data?.error || 'Failed to upload CSV data.');
-        } finally {
-            setUploadingCsv(false);
+            setShowUploadModal(false); onUpdate();
+        } catch (err) { setCsvError(err.response?.data?.error || 'Failed to upload CSV data.'); }
+        finally { setUploadingCsv(false); }
+    };
+
+    const getStatusColorClass = (status) => {
+        switch (status) {
+            case 'Can Close': return 'text-success';
+            case 'Moderate': return 'text-warning';
+            case 'Risk': return 'text-danger';
+            default: return 'text-muted';
         }
     };
   
     const renderTableRows = () => {
         if (!processedData || processedData.length === 0) {
-             return (<tr><td colSpan={canEdit ? "12" : "11"} className="text-center text-muted p-4">No records found.</td></tr>);
+            return (<tr><td colSpan={canEdit ? 13 : 12} className="text-center text-muted p-4">No records found.</td></tr>);
         }
 
         const rows = [];
         processedData.forEach(item => {
             if (!item.students || item.students.length === 0) {
-                 rows.push(
-                    <tr key={item._id}>
-                        <td className="align-middle">{item.companyName}</td><td className="align-middle">{item.role}</td><td className="align-middle text-center">{item.openings}</td>
-                        <td className="align-middle text-center">0</td>
-                        <td colSpan="5" className="text-muted text-center">No students assigned.</td>
-                        <td className="align-middle text-center fw-bold">0%</td><td className="align-middle text-center">N/A</td>
-                        {canEdit && (<td className="text-center align-middle"><Button variant="link" className="p-1 me-2" onClick={() => handleShowModal(item)}><i className="fas fa-edit"></i></Button><Button variant="link" className="p-1 text-danger" onClick={() => handleDeleteClick(item)}><i className="fas fa-trash"></i></Button></td>)}
-                    </tr>
-                 );
-                 return;
+                 rows.push(<tr key={item._id}><td className="align-middle">{item.companyName}</td><td className="align-middle">{item.role}</td><td className="align-middle text-center">{item.openings}</td><td className="align-middle text-center">0</td><td colSpan="5" className="text-muted text-center">No students assigned.</td><td className="align-middle text-center fw-bold">0%</td><td className="align-middle text-center">N/A</td><td>-</td>{canEdit && <td className="text-center align-middle"><Button variant="link" className="p-1 me-2" onClick={() => handleShowModal(item)}><i className="fas fa-edit"></i></Button><Button variant="link" className="p-1 text-danger" onClick={() => handleDeleteClick(item)}><i className="fas fa-trash"></i></Button></td>}</tr>); return;
             }
-
             item.students.forEach((student, index) => {
                 rows.push(
                     <tr key={`${item._id}-${student._id || index}`}>
-                        {index === 0 && <td className="align-middle" rowSpan={item.students.length}>{item.companyName}</td>}
-                        {index === 0 && <td className="align-middle" rowSpan={item.students.length}>{item.role}</td>}
-                        {index === 0 && <td className="align-middle text-center" rowSpan={item.students.length}>{item.openings}</td>}
-                        {index === 0 && <td className="align-middle text-center" rowSpan={item.students.length}>{item.students.length}</td>}
-                        
-                        <td>{student.studentName}</td>
-                        <td className="text-center">{student.technicalScore}%</td>
-                        <td className="text-center">{student.sincerityScore}%</td>
-                        <td className="text-center">{student.communicationScore}%</td>
-                        <td className="text-center fw-bold">{student.overallEachStudentProbability}%</td>
-                        
-                        {index === 0 && <td className="align-middle text-center fw-bold" rowSpan={item.students.length}>{item.overallCompanyProbability}%</td>}
-                        {index === 0 && <td className={`align-middle text-center fw-bold ${getStatusColorClass(item.closingStatus)}`} rowSpan={item.students.length}>{item.closingStatus}</td>}
-                        
-                        {canEdit && index === 0 && (<td rowSpan={item.students.length} className="text-center align-middle"><Button variant="link" className="p-1 me-2" onClick={() => handleShowModal(item)} title="Edit"><i className="fas fa-edit"></i></Button><Button variant="link" className="p-1 text-danger" onClick={() => handleDeleteClick(item)} title="Delete"><i className="fas fa-trash"></i></Button></td>)}
+                        {index === 0 && <><td className="align-middle" rowSpan={item.students.length}>{item.companyName}</td><td className="align-middle" rowSpan={item.students.length}>{item.role}</td><td className="align-middle text-center" rowSpan={item.students.length}>{item.openings}</td><td className="align-middle text-center" rowSpan={item.students.length}>{item.students.length}</td></>}
+                        <td>{student.studentName}</td><td className="text-center">{student.technicalScore}%</td><td className="text-center">{student.sincerityScore}%</td><td className="text-center">{student.communicationScore}%</td><td className="text-center fw-bold">{student.overallEachStudentProbability}%</td>
+                        {index === 0 && <><td className="align-middle text-center fw-bold" rowSpan={item.students.length}>{item.overallCompanyProbability}%</td><td className={`align-middle text-center fw-bold ${getStatusColorClass(item.closingStatus)}`} rowSpan={item.students.length}>{item.closingStatus}</td></>}
+                        <td className="text-center align-middle">{canEdit ? <Form.Select size="sm" value={student.overallStatus || ''} onChange={(e) => handleOverallStatusChange(item._id, student._id, e.target.value)} disabled={actionLoading} style={{minWidth:'100px'}}><option value="">- Select -</option><option value="Hired">Hired</option><option value="Hold">Hold</option><option value="Reject">Reject</option></Form.Select> : student.overallStatus || <span className="text-muted fst-italic">N/A</span>}</td>
+                        {canEdit && index === 0 && <td rowSpan={item.students.length} className="text-center align-middle"><Button variant="link" className="p-1 me-2" onClick={() => handleShowModal(item)} title="Edit"><i className="fas fa-edit"></i></Button><Button variant="link" className="p-1 text-danger" onClick={() => handleDeleteClick(item)} title="Delete"><i className="fas fa-trash"></i></Button></td>}
                     </tr>
                 );
             });
@@ -265,28 +223,17 @@ const CompaniesStatus = ({ data, canEdit, onUpdate }) => {
             <Card className="shadow-sm">
                 <Card.Header className="d-flex justify-content-between align-items-center">
                     <h5>Companies Closing Status</h5>
-                    {canEdit &&
-                        <div className="d-flex gap-2">
-                             <Button onClick={handleOpenUploadModal} variant="outline-success" size="sm">
-                                <i className="fas fa-file-csv me-2"></i>Upload CSV
-                            </Button>
-                            <Button onClick={() => handleShowModal()} size="sm">
-                                <i className="fas fa-plus me-2"></i>Add Record
-                            </Button>
-                        </div>
-                    }
+                    {canEdit && <div className="d-flex gap-2">
+                        <Button onClick={handleOpenUploadModal} variant="outline-success" size="sm"><i className="fas fa-file-csv me-2"></i>Upload CSV</Button>
+                        <Button onClick={() => handleShowModal()} size="sm"><i className="fas fa-plus me-2"></i>Add Record</Button>
+                    </div>}
                 </Card.Header>
-                 <Card.Body>
+                <Card.Body>
                     {error && <Alert variant="danger" onClose={() => setError(null)} dismissible>{error}</Alert>}
                     <div className="table-responsive">
                         <Table striped bordered hover size="sm">
                             <thead className="table-light text-center">
-                                <tr>
-                                    <th>Company</th><th>Role</th><th>Openings</th><th>Students Assigned</th>
-                                    <th>Student Name</th><th>Tech %</th><th>Sincere %</th><th>Comm %</th>
-                                    <th>Overall (Student)</th><th>Overall (Company)</th><th>Closing Status</th>
-                                    {canEdit && <th>Actions</th>}
-                                </tr>
+                                <tr><th>Company</th><th>Role</th><th>Openings</th><th>Students Assigned</th><th>Student Name</th><th>Tech %</th><th>Sincere %</th><th>Comm %</th><th>Overall (Student)</th><th>Overall (Company)</th><th>Closing Status</th><th>Overall Status</th>{canEdit && <th>Actions</th>}</tr>
                             </thead>
                             <tbody>{renderTableRows()}</tbody>
                         </Table>
@@ -303,18 +250,11 @@ const CompaniesStatus = ({ data, canEdit, onUpdate }) => {
             </Modal>
 
             <Modal show={showUploadModal} onHide={() => setShowUploadModal(false)} size="lg" centered backdrop="static">
-                <Modal.Header closeButton>
-                    <Modal.Title><i className="fas fa-file-csv me-2"></i>Upload CSV for Company Status</Modal.Title>
-                </Modal.Header>
+                <Modal.Header closeButton><Modal.Title><i className="fas fa-file-csv me-2"></i>Upload CSV for Company Status</Modal.Title></Modal.Header>
                 <Modal.Body>
                     {csvError && <Alert variant="danger">{csvError}</Alert>}
-                    <p className="small text-muted">
-                        Required columns: <strong>Company Name, Role, Openings, Student Name, NIAT ID, Technical Score, Sincerity Score, Communication Score</strong>.
-                        Each row should represent one student assignment.
-                    </p>
-                    <Form.Group controlId="csvFile" className="mb-3">
-                        <Form.Control type="file" accept=".csv" onChange={handleFileChange} ref={fileInputRef} />
-                    </Form.Group>
+                    <p className="small text-muted">Required columns: <strong>Company Name, Role, Openings, Student Name, NIAT ID, Technical Score, Sincerity Score, Communication Score</strong>. Each row should represent one student assignment.</p>
+                    <Form.Group controlId="csvFile" className="mb-3"><Form.Control type="file" accept=".csv" onChange={handleFileChange} ref={fileInputRef} /></Form.Group>
                     {csvData.length > 0 && (
                         <div>
                             <h6>CSV Preview ({csvData.length} rows found)</h6>
@@ -328,12 +268,7 @@ const CompaniesStatus = ({ data, canEdit, onUpdate }) => {
                         </div>
                     )}
                 </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowUploadModal(false)}>Cancel</Button>
-                    <Button variant="primary" onClick={handleSaveCsvData} disabled={uploadingCsv || csvData.length === 0}>
-                        {uploadingCsv ? <><Spinner as="span" size="sm" /> Uploading...</> : 'Upload & Save'}
-                    </Button>
-                </Modal.Footer>
+                <Modal.Footer><Button variant="secondary" onClick={() => setShowUploadModal(false)}>Cancel</Button><Button variant="primary" onClick={handleSaveCsvData} disabled={uploadingCsv || csvData.length === 0}>{uploadingCsv ? <><Spinner as="span" size="sm" /> Uploading...</> : 'Upload & Save'}</Button></Modal.Footer>
             </Modal>
         </>
     );
