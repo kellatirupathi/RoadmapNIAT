@@ -614,7 +614,6 @@ const UserManagement = () => {
       await userService.createUser(newUser);
       await fetchUsers(); // Refresh the list
       setShowAddUserModal(false);
-      setSuccess("User created successfully!");
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create user');
     } finally {
@@ -693,7 +692,6 @@ const UserManagement = () => {
     try {
       await userService.resetUserPassword(selectedUser._id, { newPassword: resetPassword.newPassword });
       setShowResetPasswordModal(false);
-      setSuccess("Password reset successfully.");
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to reset password');
     } finally {
@@ -714,7 +712,6 @@ const UserManagement = () => {
       await userService.deleteUser(selectedUser._id);
       await fetchUsers();
       setShowDeleteUserModal(false);
-      setSuccess("User deleted successfully.");
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to delete user');
     } finally {
