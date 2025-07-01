@@ -55,8 +55,8 @@ const LogInteractionModal = ({ show, handleClose, onSave, loading, isEditing, in
              <Form onSubmit={handleSubmit}>
                 <Modal.Body>
                     <Row>
-                        <Col md={6}><Form.Group className="mb-3"><Form.Label>Interaction Dropdown</Form.Label><Form.Select name="interactionType" value={subData.interactionType} onChange={handleChange}><option>Interaction 1</option><option>Interaction 2</option><option>Interaction 3</option><option>Interaction 4</option></Form.Select></Form.Group><Form.Group className="mb-3"><Form.Label>Interaction Summary</Form.Label><Form.Select name="interactionSummary" value={subData.interactionSummary} onChange={handleChange}><option>Neutral</option><option>Positive feedback</option><option>Negative feedback</option></Form.Select></Form.Group></Col>
-                        <Col md={6}><Form.Group className="mb-3"><Form.Label>Interaction Attendees</Form.Label><Form.Control type="text" name="interactionAttendees" value={subData.interactionAttendees || ''} onChange={handleChange} placeholder="e.g., Mr. Sharma, Ranjith P" /></Form.Group><Form.Group><Form.Label>Interaction Overall Remarks</Form.Label><Form.Control as="textarea" rows={5} name="interactionOverallRemarks" value={subData.interactionOverallRemarks || ''} onChange={handleChange} required/></Form.Group></Col>
+                    <Col md={6}><Form.Group className="mb-3"><Form.Label>Interaction Dropdown</Form.Label><Form.Select name="interactionType" value={subData.interactionType} onChange={handleChange}><option>Interaction 1</option><option>Interaction 2</option><option>Interaction 3</option><option>Interaction 4</option></Form.Select></Form.Group><Form.Group className="mb-3"><Form.Label>Interaction Summary</Form.Label><Form.Select name="interactionSummary" value={subData.interactionSummary} onChange={handleChange}><option>Neutral</option><option>Positive feedback</option><option>Negative feedback</option></Form.Select></Form.Group></Col>
+                    <Col md={6}><Form.Group className="mb-3"><Form.Label>Interaction Attendees</Form.Label><Form.Control type="text" name="interactionAttendees" value={subData.interactionAttendees || ''} onChange={handleChange} placeholder="e.g., Mr. Sharma, Ranjith P" /></Form.Group><Form.Group><Form.Label>Interaction Overall Remarks</Form.Label><Form.Control as="textarea" rows={5} name="interactionOverallRemarks" value={subData.interactionOverallRemarks || ''} onChange={handleChange} required/></Form.Group></Col>
                     </Row>
                 </Modal.Body>
                 <Modal.Footer><Button variant="secondary" onClick={handleClose}>Cancel</Button><Button variant="primary" type="submit" disabled={loading}>{loading ? <Spinner size="sm"/> : 'Save Changes'}</Button></Modal.Footer>
@@ -217,7 +217,7 @@ const InteractionsFeedback = ({ data, canEdit, onUpdate }) => {
                                                 <strong className="text-primary">{sub.interactionType}</strong>
                                                 <small className="text-muted">{formatDate(sub.date)}</small>
                                             </div>
-                                            <p className="mb-1">{sub.interactionOverallRemarks}</p>
+                                            <p className="mb-1" style={{ whiteSpace: 'pre-wrap' }}>{sub.interactionOverallRemarks}</p>
                                             <small className="text-muted">
                                                 <strong>Summary:</strong> {sub.interactionSummary} | <strong>Attendees:</strong> {sub.interactionAttendees || 'N/A'}
                                             </small>
