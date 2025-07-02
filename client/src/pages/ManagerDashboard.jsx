@@ -1,11 +1,11 @@
 // client/src/pages/ManagerDashboard.jsx
-import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, Button, Table, Badge, Form, Spinner, Alert, Modal, Dropdown } from 'react-bootstrap';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Card, Row, Col, Button, Table, Badge, Spinner, Alert, Modal } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 import statsService from '../services/statsService';
 import userService from '../services/userService';
-import { getRoleBadgeColor } from '../services/rolesService';
+import { companyStatusService } from '../services/criticalPointsService.js';
 import InstructorProgressTable from '../components/InstructorProgress/InstructorProgressTable';
 
 // Import Chart.js components
@@ -33,10 +33,9 @@ ChartJS.register(
 const ManagerDashboard = ({ setPageLoading }) => {
   const { user } = useAuth();
   const [stats, setStats] = useState(null); 
-  const [userActivityStats, setUserActivityStats] = useState(null); 
+  const [companyStatusData, setCompanyStatusData] = useState([]); 
   const [loading,setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [period, setPeriod] = useState('weekly');
   const [techStackProgress, setTechStackProgress] = useState([]); 
   const [allInstructors, setAllInstructors] = useState([]); 
 
@@ -62,16 +61,19 @@ const ManagerDashboard = ({ setPageLoading }) => {
         setError(null);
         if (setPageLoading) setPageLoading(true);
         
-        const [dashboardResponse, activityResponse, timelineResponse, usersResponse] = await Promise.all([
+        const [dashboardResponse, companyStatusResponse, timelineResponse, usersResponse] = await Promise.all([
           statsService.getDashboardSummary(),
-          statsService.getUserActivityStats(period),
+          companyStatusService.getAll(),
           statsService.getTimelineStats(),
           userService.getUsers() 
         ]);
         
         setStats(dashboardResponse); 
-        setUserActivityStats(activityResponse); 
         
+        if (companyStatusResponse && companyStatusResponse.data) {
+          setCompanyStatusData(companyStatusResponse.data);
+        }
+
         if (timelineResponse && timelineResponse.techStackProgress) {
           setTechStackProgress(timelineResponse.techStackProgress);
         }
@@ -89,11 +91,32 @@ const ManagerDashboard = ({ setPageLoading }) => {
     };
 
     fetchData();
-  }, [period, setPageLoading]);
-
-  const handlePeriodChange = (newPeriod) => {
-    setPeriod(newPeriod);
-  };
+  }, [setPageLoading]);
+  
+  const processedCompanyStatus = useMemo(() => {
+    if (!companyStatusData) return [];
+    return companyStatusData.map(item => {
+        const studentsWithAvg = (item.students || []).map(student => {
+            const tech = parseFloat(student.technicalScore) || 0;
+            const sincere = parseFloat(student.sincerityScore) || 0;
+            const comm = parseFloat(student.communicationScore) || 0;
+            const avg = Math.round((tech + sincere + comm) / 3);
+            return { ...student, overallEachStudentProbability: avg };
+        });
+        const totalProbability = studentsWithAvg.reduce((sum, s) => sum + s.overallEachStudentProbability, 0);
+        const overallCompanyProbability = studentsWithAvg.length > 0 ? Math.round(totalProbability / studentsWithAvg.length) : 0;
+        let closingStatus = 'Risk';
+        if (overallCompanyProbability >= 90) closingStatus = 'Can Close';
+        else if (overallCompanyProbability >= 70) closingStatus = 'Moderate';
+        
+        return { 
+          _id: item._id, 
+          companyName: item.companyName, 
+          role: item.role, 
+          closingStatus: closingStatus
+        };
+    }).sort((a,b) => a.companyName.localeCompare(b.companyName));
+  }, [companyStatusData]);
 
   const handleShowInstructorsModal = async () => {
     setShowInstructorsModal(true);
@@ -202,11 +225,6 @@ const ManagerDashboard = ({ setPageLoading }) => {
         <div>
           <p className="text-muted mb-0">Welcome back, {user?.firstName || user?.username}</p>
         </div>
-        <div className="btn-group mt-2 mt-md-0">
-          <Button variant={period === 'daily' ? 'primary' : 'outline-primary'} onClick={() => handlePeriodChange('daily')} size="sm">Daily</Button>
-          <Button variant={period === 'weekly' ? 'primary' : 'outline-primary'} onClick={() => handlePeriodChange('weekly')} size="sm">Weekly</Button>
-          <Button variant={period === 'monthly' ? 'primary' : 'outline-primary'} onClick={() => handlePeriodChange('monthly')} size="sm">Monthly</Button>
-        </div>
       </div>
       
       {error && !showInstructorsModal && !showTechStackStatusModal && (
@@ -284,7 +302,7 @@ const ManagerDashboard = ({ setPageLoading }) => {
             <Col><InstructorProgressTable /></Col>
           </Row>
 
-          {/* 3. Tech Stack Item Progress and User Activity */}
+          {/* 3. Tech Stack Item Progress and Company Closing Status */}
           <Row className="mb-4">
             <Col lg={7}>
               <Card className="border-0 shadow-sm h-100">
@@ -317,25 +335,50 @@ const ManagerDashboard = ({ setPageLoading }) => {
             </Col>
             <Col lg={5}>
               <Card className="border-0 shadow-sm h-100">
-                <Card.Header className="bg-white py-3 d-flex justify-content-between align-items-center fw-bold"><h5 className="mb-0">User Activity</h5><div className="text-muted small">{period.charAt(0).toUpperCase() + period.slice(1)} report</div></Card.Header>
+                <Card.Header className="bg-white py-3 d-flex justify-content-between align-items-center fw-bold">
+                  <h5 className="mb-0">Company Closing Status</h5>
+                  <Link to="/critical-points?tab=status" className="btn btn-outline-primary btn-sm rounded-pill px-3">
+                     <i className="fas fa-eye me-1"></i>
+                     View All
+                  </Link>
+                </Card.Header>
                 <Card.Body className="p-0">
-                  {userActivityStats && userActivityStats.userActivity && userActivityStats.userActivity.length > 0 ? (
+                  {processedCompanyStatus.length > 0 ? (
                     <div className="table-responsive" style={{ maxHeight: '400px' }}>
-                      <Table hover className="mb-0">
-                        <thead className="bg-light"><tr><th>User</th><th>Role</th><th>Actions</th><th>Last Activity</th></tr></thead>
+                      <Table hover className="mb-0 align-middle">
+                        <thead className="bg-light">
+                          <tr>
+                            <th>Company Name</th>
+                            <th>Role</th>
+                            <th className="text-center">Status</th>
+                          </tr>
+                        </thead>
                         <tbody>
-                          {userActivityStats.userActivity.map((activity, index) => (
-                            <tr key={index}>
-                              <td className="fw-medium">{activity.firstName ? `${activity.firstName} ${activity.lastName || ''}`: activity.username}</td>
-                              <td><Badge bg={getRoleBadgeColor(activity.role)}>{activity.role}</Badge></td>
-                              <td>{activity.count}</td>
-                              <td className="text-muted small">{activity.actions && activity.actions.length > 0 ? new Date(activity.actions[0].timestamp).toLocaleString() : 'N/A'}</td>
+                          {processedCompanyStatus.map((item) => (
+                            <tr key={item._id}>
+                              <td className="fw-medium">{item.companyName}</td>
+                              <td>{item.role}</td>
+                              <td className="text-center">
+                                <Badge 
+                                  bg={
+                                    item.closingStatus === 'Can Close' ? 'success' :
+                                    item.closingStatus === 'Moderate' ? 'warning' : 'danger'
+                                  } 
+                                  className="rounded-pill px-2 py-1"
+                                >
+                                  {item.closingStatus}
+                                </Badge>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
                       </Table>
                     </div>
-                  ) : (<div className="text-center py-4"><p className="mb-0 text-muted">No activity data available for the selected period.</p></div>)}
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="mb-0 text-muted">No company status data available.</p>
+                    </div>
+                  )}
                 </Card.Body>
               </Card>
             </Col>
@@ -345,38 +388,12 @@ const ManagerDashboard = ({ setPageLoading }) => {
           <Card className="border-0 shadow-sm mb-4">
             <Card.Header className="bg-white py-3 fw-bold d-flex justify-content-between align-items-center">
               <h5 className="mb-0">Overall Progress Overview</h5>
-              <Dropdown onSelect={(eventKey) => setProgressChartView(eventKey)} size="sm">
-                <Dropdown.Toggle variant="outline-secondary" id="progress-chart-view-dropdown">
-                  View: {progressChartView === 'items' ? 'Items Wise' : 'Tech Stacks Wise'}
-                </Dropdown.Toggle>
-                <Dropdown.Menu>
-                  <Dropdown.Item eventKey="items" active={progressChartView === 'items'}>Items Wise</Dropdown.Item>
-                  <Dropdown.Item eventKey="techStacks" active={progressChartView === 'techStacks'}>Tech Stacks Wise</Dropdown.Item>
-                </Dropdown.Menu>
-              </Dropdown>
             </Card.Header>
             <Card.Body>
-              <div className="mb-3 d-flex justify-content-around text-center">
-                {progressChartView === 'items' ? (
-                    <>
-                        <div><h4 className="text-success mb-0">{stats.itemStats?.['Completed'] || 0}</h4><small className="text-muted">Completed Items</small></div>
-                        <div><h4 className="text-warning mb-0">{stats.itemStats?.['In Progress'] || 0}</h4><small className="text-muted">In Progress Items</small></div>
-                        <div><h4 className="text-danger mb-0">{stats.itemStats?.['Yet to Start'] || 0}</h4><small className="text-muted">Yet to Start Items</small></div>
-                        <div><h4 className="text-primary mb-0">{stats.counts?.totalItems || 0}</h4><small className="text-muted">Total Items</small></div>
-                    </>
-                ) : (
-                    <>
-                        <div><h4 className="text-success mb-0">{stats.techStackStatusCounts?.completed || 0}</h4><small className="text-muted">Completed Stacks</small></div>
-                        <div><h4 className="text-warning mb-0">{stats.techStackStatusCounts?.inProgress || 0}</h4><small className="text-muted">In Progress Stacks</small></div>
-                        <div><h4 className="text-danger mb-0">{stats.techStackStatusCounts?.yetToStart || 0}</h4><small className="text-muted">Yet to Start Stacks</small></div>
-                        <div><h4 className="text-primary mb-0">{stats.counts?.techStacks || 0}</h4><small className="text-muted">Total Stacks</small></div>
-                    </>
-                )}
-              </div>
               <div style={{ height: '300px' }}>
                 <Bar 
-                    data={progressChartView === 'items' ? itemProgressChartData : techStackProgressChartData} 
-                    options={progressChartView === 'items' ? itemProgressChartOptions : techStackProgressChartOptions} 
+                    data={techStackProgressChartData} 
+                    options={techStackProgressChartOptions} 
                 />
               </div>
             </Card.Body>
