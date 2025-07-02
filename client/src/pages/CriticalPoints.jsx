@@ -1,6 +1,7 @@
 // client/src/pages/CriticalPoints.jsx
 import React, { useState, useEffect } from 'react';
 import { Nav, Spinner, Alert } from 'react-bootstrap';
+import { useLocation } from 'react-router-dom';
 import useAuth from '../hooks/useAuth.js';
 import InteractionsFeedback from '../components/critical-points/InteractionsFeedback.jsx';
 import CompaniesStatus from '../components/critical-points/CompaniesStatus.jsx';
@@ -8,7 +9,11 @@ import { interactionsService, companyStatusService } from '../services/criticalP
 
 const CriticalPointsPage = () => {
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState('interactions');
+    const location = useLocation();
+    const queryParams = new URLSearchParams(location.search);
+    const initialTab = queryParams.get('tab') === 'status' ? 'status' : 'interactions';
+
+    const [activeTab, setActiveTab] = useState(initialTab);
     const [interactionsData, setInteractionsData] = useState([]);
     const [companyStatusData, setCompanyStatusData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -36,6 +41,11 @@ const CriticalPointsPage = () => {
     useEffect(() => {
         fetchData();
     }, []);
+
+    // Sync active tab with URL query param in case the user navigates back/forward
+    useEffect(() => {
+        setActiveTab(initialTab);
+    }, [location.search, initialTab]);
 
     return (
         <div className="critical-points-page">
