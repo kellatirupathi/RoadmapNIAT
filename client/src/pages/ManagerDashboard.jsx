@@ -200,7 +200,6 @@ const ManagerDashboard = ({ setPageLoading }) => {
     <div className="">
       <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap">
         <div>
-          <h1 className="h4 fw-bold mb-1">{dashboardDisplayName} Dashboard</h1>
           <p className="text-muted mb-0">Welcome back, {user?.firstName || user?.username}</p>
         </div>
         <div className="btn-group mt-2 mt-md-0">
