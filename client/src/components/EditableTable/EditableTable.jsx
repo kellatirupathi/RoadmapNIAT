@@ -149,7 +149,7 @@ const EditableTable = ({ columns, data, onSave, onDelete, onAdd, isLoading, acti
             
             // MODIFIED: Show 'Auto' if the manual override is not set
             if (progressValue === null || typeof progressValue === 'undefined') {
-                return <span className="text-muted small">Auto</span>;
+                return <span className="text-muted small"></span>;
             }
             
             const roundedProgress = Math.round(progressValue);
