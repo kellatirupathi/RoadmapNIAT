@@ -523,10 +523,11 @@ const InternshipMasterForm = ({ data, setData, techStackOptions, loading, techSt
                         >
                             <option value="Active">Active</option>
                             <option value="Inactive">Inactive</option>
+                            <option value="Hold">Hold</option>
                         </Form.Select>
                     </Form.Group>
                 </Col>
-                {data.companyStatus === 'Inactive' && (
+                {(data.companyStatus === 'Inactive' || data.companyStatus === 'Hold') && (
                     <Col md={8}>
                         <Form.Group>
                             <Form.Label>Reason</Form.Label>
@@ -536,7 +537,7 @@ const InternshipMasterForm = ({ data, setData, techStackOptions, loading, techSt
                                 name="reasonInactive" 
                                 value={data.reasonInactive || ''} 
                                 onChange={handleInputChange} 
-                                placeholder="Reason if inactive" 
+                                placeholder={`Reason if ${data.companyStatus?.toLowerCase()}`} 
                             />
                         </Form.Group>
                     </Col>
@@ -956,6 +957,7 @@ const InternshipsTracker = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [newRowData, setNewRowData] = useState({});
+    const [searchTerm, setSearchTerm] = useState(''); // Added search term state
     
     // --- START CSV UPLOAD STATE ---
     const [showUploadModal, setShowUploadModal] = useState(false);
@@ -1017,6 +1019,7 @@ const InternshipsTracker = () => {
             fetchData(activeSheet);
         }
         setCurrentPage(1);
+        setSearchTerm(''); // Reset search term when changing sheets
     }, [activeSheet, fetchData]);
     
     useEffect(() => {
@@ -1354,7 +1357,7 @@ const InternshipsTracker = () => {
                     "ROLES": company.roles || '',
                     "OFFERS": company.internshipOffers || 0,
                     "STATUS": company.companyStatus || '',
-                    "REASON (INACTIVE)": company.reasonInactive || '',
+                    "REASON (INACTIVE/HOLD)": company.reasonInactive || '',
                     "MAPPING METHOD": company.studentMappingMethod || '',
                     "MAPPING COUNTS": company.studentMappingCounts || 0,
                     "MAPPING OFFERS": 0,
@@ -1479,12 +1482,36 @@ const InternshipsTracker = () => {
         );
     };
     
+    // Filter data based on search term
+    const filteredData = useMemo(() => {
+        if (!searchTerm || !searchTerm.trim()) return sheetData;
+        
+        const term = searchTerm.toLowerCase();
+        
+        return sheetData.filter(item => {
+            if (activeSheet === 'internship-master') {
+                return (
+                    (item.companies && item.companies.toLowerCase().includes(term)) ||
+                    (item.roles && item.roles.toLowerCase().includes(term)) ||
+                    (item.studentMappingMethod && item.studentMappingMethod.toLowerCase().includes(term))
+                );
+            } else if (activeSheet === 'tech-stack-roadmaps') {
+                return (
+                    (item.techStack && item.techStack.toLowerCase().includes(term)) ||
+                    (item.techStackRp && item.techStackRp.toLowerCase().includes(term)) ||
+                    (Array.isArray(item.instructors) && item.instructors.some(instr => instr.toLowerCase().includes(term)))
+                );
+            }
+            return false;
+        });
+    }, [sheetData, searchTerm, activeSheet]);
+    
     const paginatedData = useMemo(() => {
         if (loading) return [];
         const startIndex = (currentPage - 1) * rowsPerPage;
         const endIndex = startIndex + rowsPerPage;
-        return sheetData.slice(startIndex, endIndex);
-    }, [sheetData, currentPage, rowsPerPage, loading]);
+        return filteredData.slice(startIndex, endIndex);
+    }, [filteredData, currentPage, rowsPerPage, loading]);
 
     // Render tech stack mapping display row
     const renderTechStackMapping = (company, mapping, index) => {
@@ -1511,13 +1538,17 @@ const InternshipsTracker = () => {
                         <td rowSpan={company.mappings?.length || 1}>{company.roles}</td>
                         <td rowSpan={company.mappings?.length || 1}>{company.internshipOffers}</td>
                         <td rowSpan={company.mappings?.length || 1}>
-                            <span className={`badge ${company.companyStatus === 'Active' ? 'bg-success' : 'bg-secondary'}`}>
-                                {company.companyStatus}
-                            </span>
+                        <span className={`badge ${
+    company.companyStatus === 'Active' ? 'bg-success' : 
+    company.companyStatus === 'Hold' ? 'bg-warning' : 
+    'bg-secondary'
+}`}>
+    {company.companyStatus}
+</span>
                         </td>
                         <td rowSpan={company.mappings?.length || 1} style={{ maxWidth: '200px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                            {company.companyStatus === 'Inactive' ? company.reasonInactive : 'N/A'}
-                        </td>
+    {(company.companyStatus === 'Inactive' || company.companyStatus === 'Hold') ? company.reasonInactive : 'N/A'}
+</td>
                         <td rowSpan={company.mappings?.length || 1}>{company.studentMappingMethod}</td>
                         <td rowSpan={company.mappings?.length || 1}>{company.studentMappingCounts}</td>
                     </>
@@ -1568,6 +1599,25 @@ const InternshipsTracker = () => {
             <Card.Header as="h6" className="bg-light d-flex justify-content-between align-items-center">
                 {title}
                 <div className="d-flex gap-2">
+                    {/* Search input box for Internship Master */}
+                    {activeSheet === 'internship-master' && (
+                        <div className="input-group input-group-sm" style={{ width: '250px' }}>
+                            <Form.Control
+                                placeholder="Search records..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                            {searchTerm && (
+                                <Button 
+                                    variant="outline-secondary"
+                                    onClick={() => setSearchTerm('')}
+                                >
+                                    <i className="fas fa-times"></i>
+                                </Button>
+                            )}
+                        </div>
+                    )}
+
                     {showExportButton && (
                         <Button variant="outline-primary" size="sm" onClick={onExportClick} title="Export as CSV">
                             <i className="fas fa-download me-2"></i>Export
@@ -1665,7 +1715,7 @@ const InternshipsTracker = () => {
                                </Table>
                            </div>
                        </Card.Body>
-                       <Card.Footer className="bg-light"><PaginationControls totalRows={sheetData.length} /></Card.Footer>
+                       <Card.Footer className="bg-light"><PaginationControls totalRows={filteredData.length} /></Card.Footer>
                    </Card>
                 </div>
            );
@@ -1681,7 +1731,7 @@ const InternshipsTracker = () => {
                                <EditableTable columns={columns} data={paginatedData} onSave={user.role === 'admin' ? handleSaveRow : undefined} onDelete={user.role === 'admin' ? openDeleteRowModal : undefined} isLoading={actionLoading} allowAdd={false} activeSheet={activeSheet} />
                            </div>
                        </Card.Body>
-                       <Card.Footer className="bg-light"><PaginationControls totalRows={sheetData.length} /></Card.Footer>
+                       <Card.Footer className="bg-light"><PaginationControls totalRows={filteredData.length} /></Card.Footer>
                    </Card>
                 </div>
            );
