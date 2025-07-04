@@ -34,7 +34,7 @@ const techStackRoadmapColumns = [
 
 const subsheetConfigs = {
     'internship-master': { name: 'Internship Master' },
-    'tech-stack-roadmaps': { name: 'Tech Stack Roadmaps', columns: techStackRoadmapColumns },
+    // 'tech-stack-roadmaps': { name: 'Tech Stack Roadmaps', columns: techStackRoadmapColumns },
     'companywise-students-progress': { name: 'Companywise - Students Progress' },
     'student-wise-progress': { name: 'Student Wise Progress' },
 };
