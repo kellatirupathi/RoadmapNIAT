@@ -318,12 +318,20 @@ export const bulkCreateSheetRows = async (req, res) => {
                     techProgress: (lcRow['tech stacks & progress'] || '').split(';').map(item => {
                         const parts = item.trim().split(/\s*\(\s*(\d+%?)\s*\)/);
                         const techStackName = parts[0].trim();
-                        const progressStr = parts[1] || '0';
-                        const progress = parseInt(progressStr.replace('%', '')) || 0;
+                        
+                        // --- START FIX: Correctly parse progress or set to null ---
+                        let manualProgress = null;
+                        if (parts[1]) { // If a value in parentheses like (90%) was found
+                            const progressValue = parseInt(parts[1].replace('%', '').trim());
+                            if (!isNaN(progressValue)) {
+                                manualProgress = progressValue;
+                            }
+                        }
+                        // --- END FIX ---
                         
                         return {
                             techStackName,
-                            manualProgress: progress
+                            manualProgress // Will be a number or null
                         };
                     }).filter(tp => tp.techStackName)
                 };
