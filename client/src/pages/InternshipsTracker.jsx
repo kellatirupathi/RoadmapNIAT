@@ -1547,7 +1547,7 @@ const InternshipsTracker = () => {
 </span>
                         </td>
                         <td rowSpan={company.mappings?.length || 1} style={{ maxWidth: '200px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
-    {(company.companyStatus === 'Inactive' || company.companyStatus === 'Hold') ? company.reasonInactive : 'N/A'}
+    {(company.companyStatus === 'Inactive' || company.companyStatus === 'Hold') ? company.reasonInactive : ''}
 </td>
                         <td rowSpan={company.mappings?.length || 1}>{company.studentMappingMethod}</td>
                         <td rowSpan={company.mappings?.length || 1}>{company.studentMappingCounts}</td>
@@ -1555,12 +1555,12 @@ const InternshipsTracker = () => {
                 )}
                 <td>{mapping.mappingOffers}</td>
                 <td style={{minWidth: '200px'}}>{techStacksDisplay}</td>
-                <td>{mapping.technologies || 'N/A'}</td>
-                <td>{mapping.internshipStartDate ? new Date(mapping.internshipStartDate).toLocaleDateString() : 'N/A'}</td>
-                <td>{mapping.stackCompletionDate ? new Date(mapping.stackCompletionDate).toLocaleDateString() : 'N/A'}</td>
-                <td>{mapping.internshipDuration || 'N/A'}</td>
+                <td>{mapping.technologies || ''}</td>
+                <td>{mapping.internshipStartDate ? new Date(mapping.internshipStartDate).toLocaleDateString() : ''}</td>
+                <td>{mapping.stackCompletionDate ? new Date(mapping.stackCompletionDate).toLocaleDateString() : ''}</td>
+                <td>{mapping.internshipDuration || ''}</td>
                 <td>{formatStipend(mapping.stipendPerMonth)}</td>
-                <td>{mapping.location || 'N/A'}</td>
+                <td>{mapping.location || ''}</td>
                 {user.role === 'admin' && isFirstMapping && (
                     <td rowSpan={company.mappings?.length || 1} className="text-center">
                         <Button 
