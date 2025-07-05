@@ -1184,7 +1184,7 @@ const InternshipsTracker = () => {
 
     // Format stipend with commas for display
     const formatStipend = (value) => {
-        if (!value) return 'N/A';
+        if (!value) return '';
         return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     };
 
