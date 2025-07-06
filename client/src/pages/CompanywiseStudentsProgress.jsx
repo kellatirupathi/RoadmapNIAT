@@ -1,3 +1,5 @@
+// File Path: src/pages/CompanywiseStudentsProgress.jsx
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, Form, Button, Row, Col, InputGroup, Spinner, Alert, Table, Modal, Dropdown } from 'react-bootstrap';
 import DatePicker from 'react-datepicker';
@@ -107,6 +109,30 @@ const CompanywiseStudentsProgress = ({ user }) => {
         fetchDependencies();
         setCurrentPage(1); // Reset page on data load
     }, [fetchDependencies]);
+    
+    // ===================================
+    // =========== NEW FIX ===============
+    // This is the correct function to handle saves from the EditableTable's inline form.
+    const handleSaveTableRow = async (id, dataToUpdate) => {
+        setActionLoading(true);
+        setError('');
+        setSuccess('');
+        try {
+            await internshipsTrackerService.updateSheetRow(
+                'companywise-students-progress',
+                id,
+                dataToUpdate
+            );
+            await fetchSavedData(); // Refresh the data to show changes
+            setSuccess('Row updated successfully!');
+            setTimeout(() => setSuccess(''), 3000);
+        } catch (err) {
+            setError("Failed to update row: " + (err.response?.data?.error || err.message));
+        } finally {
+            setActionLoading(false);
+        }
+    };
+    // ===================================
 
     // Modal handlers
     const handleOpenAddModal = () => {
@@ -115,6 +141,8 @@ const CompanywiseStudentsProgress = ({ user }) => {
         setShowAddEditModal(true);
     };
     
+    // Note: The `handleOpenEditModal` is now correctly used for opening the modal,
+    // not for saving.
     const handleOpenEditModal = (item) => {
         // Transform the saved data format to form format
         const students = [];
@@ -620,6 +648,7 @@ const CompanywiseStudentsProgress = ({ user }) => {
             </div>
         );
     };
+
     return (
         <div className="py-3">
             {error && (
@@ -698,10 +727,14 @@ const CompanywiseStudentsProgress = ({ user }) => {
                         </div>
                     ) : (
                         <div className="table-responsive-scroll">
+                             {/* =======================
+                                 ===== NEW FIX =========
+                                 Correct `onSave` prop.
+                                 ======================= */}
                             <EditableTable 
                                 columns={finalTableColumns} 
                                 data={paginatedData} 
-                                onSave={isAdmin ? handleOpenEditModal : undefined} 
+                                onSave={isAdmin ? handleSaveTableRow : undefined}
                                 onDelete={isAdmin ? handleOpenDeleteModal : undefined} 
                                 isLoading={actionLoading} 
                                 allowAdd={false}
@@ -1014,7 +1047,6 @@ const CompanywiseStudentsProgress = ({ user }) => {
                 <Modal.Body>
                     Are you sure you want to delete this student progress record? This action cannot be undone.
                 </Modal.Body>
-                
                 <Modal.Footer>
                     <Button 
                         variant="secondary" 
