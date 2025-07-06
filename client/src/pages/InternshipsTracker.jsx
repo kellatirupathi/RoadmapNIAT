@@ -1523,7 +1523,7 @@ const InternshipsTracker = () => {
             const progressData = techStackProgress.find(p => p.name === tp.techStackName);
             const progressValue = tp.manualProgress ?? (progressData ? Math.round(progressData.completionPercentage) : 0);
             return (
-                <div key={tp.techStackName} className="d-flex align-items-center my-1">
+                <div key={tp.techStackName} className="d-flex align-items-center my-0">
                     <span className="me-2 text-truncate" style={{maxWidth:'100px'}}>{tp.techStackName}</span>
                     <span className={`ms-auto small fw-bold ${getProgressColorClass(progressValue)}`}>{progressValue}%</span>
                 </div>
@@ -1555,7 +1555,8 @@ const InternshipsTracker = () => {
                 )}
                 <td>{mapping.mappingOffers}</td>
                 <td style={{minWidth: '200px'}}>{techStacksDisplay}</td>
-                <td>{mapping.technologies || ''}</td>
+                <td style={{width: '180px', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis'}}>{mapping.technologies || ''}</td>
+
                 <td>{mapping.internshipStartDate ? new Date(mapping.internshipStartDate).toLocaleDateString() : ''}</td>
                 <td>{mapping.stackCompletionDate ? new Date(mapping.stackCompletionDate).toLocaleDateString() : ''}</td>
                 <td>{mapping.internshipDuration || ''}</td>
@@ -1670,7 +1671,7 @@ const InternshipsTracker = () => {
                                            <th>Mapping Counts</th>
                                            <th>Mapping Offers</th>
                                            <th>Tech Stacks & Progress</th>
-                                           <th>Technologies</th>
+                                           <th style={{width: '180px'}}>Technologies</th>
                                            <th>Internship Start</th>
                                            <th>Stack Completion</th>
                                            <th>Internship Duration</th>
@@ -1740,18 +1741,24 @@ const InternshipsTracker = () => {
    
    return (
        <div className="container-fluid p-md-1">
-           <Card className="border-0 shadow-sm">
-               <Card.Header>
-                   <Nav variant="tabs" activeKey={activeSheet} onSelect={(k) => setActiveSheet(k)} className="nav-fill">
-                       {Object.entries(subsheetConfigs).map(([key, config]) => (<Nav.Item key={key}><Nav.Link eventKey={key}>{config.name}</Nav.Link></Nav.Item>))}
-                   </Nav>
-               </Card.Header>
-               <Card.Body>
-                   {error && <Alert variant="danger" onClose={() => setError('')} dismissible>{error}</Alert>}
-                   {success && <Alert variant="success" onClose={() => setSuccess('')} dismissible>{success}</Alert>}
-                   {renderActiveSheet()}
-               </Card.Body>
-           </Card>
+           <div className="mb-3">
+           <Nav className="nav-tabs border-bottom-0 bg-transparent" activeKey={activeSheet} onSelect={(k) => setActiveSheet(k)}>
+                   {Object.entries(subsheetConfigs).map(([key, config]) => (
+                       <Nav.Item key={key}>
+                           <Nav.Link 
+    eventKey={key} 
+    className={`px-4 py-2 border-0 bg-transparent ${activeSheet === key ? 'text-primary border-bottom border-primary border-2' : 'text-secondary'}`}
+>
+                               {config.name}
+                           </Nav.Link>
+                       </Nav.Item>
+                   ))}
+               </Nav>
+           </div>
+
+           {error && <Alert variant="danger" onClose={() => setError('')} dismissible>{error}</Alert>}
+           {success && <Alert variant="success" onClose={() => setSuccess('')} dismissible>{success}</Alert>}
+           {renderActiveSheet()}
 
            <Modal show={showUploadModal} onHide={handleCloseUploadModal} size="xl" centered>
                <Modal.Header closeButton>
@@ -1905,6 +1912,34 @@ const InternshipsTracker = () => {
                    font-size: 12px;
                    line-height: 18px;
                    font-weight: 600;
+               }
+               /* New styles for updated UI */
+               .nav-tabs {
+                   border-bottom: 1px solid #dee2e6;
+               }
+               .nav-tabs .nav-link {
+                   margin-bottom: -1px;
+                   background: none;
+                   font-size: 0.9rem;
+                   font-weight: 500;
+                   transition: color 0.15s ease-in-out;
+                   border-radius: 0;
+               }
+               .nav-tabs .nav-link:hover:not(.active) {
+                   color: #495057;
+                   border-color: transparent;
+               }
+               .nav-tabs .nav-link.active {
+                   font-weight: 600;
+               }
+               .table {
+                   font-size: 0.85rem;
+               }
+               .table th {
+                   font-weight: 600;
+                   text-transform: uppercase;
+                   font-size: 0.75rem;
+                   letter-spacing: 0.5px;
                }
            `}</style>
        </div>
