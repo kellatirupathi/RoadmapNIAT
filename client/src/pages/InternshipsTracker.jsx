@@ -1,3 +1,5 @@
+// File Path: src/pages/InternshipsTracker.jsx
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, Nav, Spinner, Alert, Button, Modal, Table, Form, Row, Col, InputGroup, Dropdown, Pagination } from 'react-bootstrap';
 import DatePicker from 'react-datepicker';
@@ -34,15 +36,9 @@ const techStackRoadmapColumns = [
 
 const subsheetConfigs = {
     'internship-master': { name: 'Internship Master' },
-    // 'tech-stack-roadmaps': { name: 'Tech Stack Roadmaps', columns: techStackRoadmapColumns },
     'companywise-students-progress': { name: 'Companywise - Students Progress' },
     'student-wise-progress': { name: 'Student Wise Progress' },
 };
-
-// List of available locations for dropdown
-const locationOptions = [
-    'Hyderabad', 'Bangalore', 'Mumbai', 'Delhi', 'Chennai', 'Pune', 'Kolkata', 'Remote', 'Other'
-];
 
 const TechStackRoadmapForm = ({ onSave, onCancel, initialData, isLoading, techStackOptions, instructors: instructorOptions, techStackProgressData }) => {
     const [formData, setFormData] = useState(initialData || {
@@ -179,10 +175,10 @@ const TechMappingForm = ({
         techProgress: [],
         mappingOffers: 0,
         technologies: '',
-        internshipStartDate: null,
-        stackCompletionDate: null,
+        internshipStartDate: '', // Changed to string
+        stackCompletionDate: '', // Changed to string
         internshipDuration: '',
-        stipendPerMonth: 0,
+        stipendPerMonth: '',     // Changed to string
         location: '',
         ...mapping
     };
@@ -197,10 +193,6 @@ const TechMappingForm = ({
         if (value === '' || !isNaN(Number(value))) {
             onChange(index, { ...data, [name]: value === '' ? 0 : Number(value) });
         }
-    };
-
-    const handleDateChange = (date, name) => {
-        onChange(index, { ...data, [name]: date });
     };
 
     const handleTechStackDropdownSelect = (selectedNames) => {
@@ -220,20 +212,6 @@ const TechMappingForm = ({
         );
         
         onChange(index, { ...data, techProgress: newTechProgress });
-    };
-
-    // Format stipend with commas
-    const formatStipend = (value) => {
-        if (!value) return '';
-        return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    };
-
-    const handleStipendChange = (e) => {
-        // Remove commas and validate as number
-        const value = e.target.value.replace(/,/g, '');
-        if (value === '' || (!isNaN(Number(value)) && Number(value) >= 0)) {
-            onChange(index, { ...data, stipendPerMonth: value === '' ? 0 : Number(value) });
-        }
     };
 
     return (
@@ -269,7 +247,7 @@ const TechMappingForm = ({
                 </Col>
                 <Col md={9}>
                     <Form.Group>
-                    <Form.Label>Technologies</Form.Label>
+                        <Form.Label>Technologies</Form.Label>
                         <Form.Control 
                             type="text" 
                             name="technologies" 
@@ -285,44 +263,37 @@ const TechMappingForm = ({
                 <Col md={3}>
                     <Form.Group>
                         <Form.Label>Internship Start</Form.Label>
-                        <DatePicker 
-                            selected={data.internshipStartDate ? new Date(data.internshipStartDate) : null} 
-                            onChange={(date) => handleDateChange(date, 'internshipStartDate')} 
-                            className="form-control" 
-                            placeholderText="Select date" 
-                            showMonthDropdown 
-                            showYearDropdown 
-                            dropdownMode="select"
+                        <Form.Control 
+                            type="text" 
+                            name="internshipStartDate" 
+                            value={data.internshipStartDate || ''} 
+                            onChange={handleInputChange} 
+                            placeholder="e.g., 2024-01-15, Jan 2024, etc."
                         />
                     </Form.Group>
                 </Col>
                 <Col md={3}>
                     <Form.Group>
                         <Form.Label>Stack Completion</Form.Label>
-                        <DatePicker 
-                            selected={data.stackCompletionDate ? new Date(data.stackCompletionDate) : null} 
-                            onChange={(date) => handleDateChange(date, 'stackCompletionDate')} 
-                            className="form-control" 
-                            placeholderText="Select date" 
-                            showMonthDropdown 
-                            showYearDropdown 
-                            dropdownMode="select"
+                        <Form.Control 
+                            type="text" 
+                            name="stackCompletionDate" 
+                            value={data.stackCompletionDate || ''} 
+                            onChange={handleInputChange} 
+                            placeholder="e.g., 2024-06-15, June 2024, etc."
                         />
                     </Form.Group>
                 </Col>
                 <Col md={2}>
                     <Form.Group>
                         <Form.Label>Duration</Form.Label>
-                        <Form.Select 
+                        <Form.Control 
+                            type="text" 
                             name="internshipDuration" 
                             value={data.internshipDuration || ''} 
                             onChange={handleInputChange}
-                        >
-                            <option value="">Select Duration</option>
-                            <option value="6 Months">6 Months</option>
-                            <option value="6 Mth to 1 Yr">6 Mth to 1 Yr</option>
-                            <option value="1 Yr+">1 Yr+</option>
-                        </Form.Select>
+                            placeholder="e.g., 6 months, 1 year"
+                        />
                     </Form.Group>
                 </Col>
                 <Col md={2}>
@@ -333,9 +304,9 @@ const TechMappingForm = ({
                             <Form.Control 
                                 type="text" 
                                 name="stipendPerMonth" 
-                                value={formatStipend(data.stipendPerMonth)} 
-                                onChange={handleStipendChange} 
-                                placeholder="0"
+                                value={data.stipendPerMonth || ''} 
+                                onChange={handleInputChange} 
+                                placeholder="e.g., 25000, 25K, etc."
                             />
                         </InputGroup>
                     </Form.Group>
@@ -343,16 +314,13 @@ const TechMappingForm = ({
                 <Col md={2}>
                     <Form.Group>
                         <Form.Label>Location</Form.Label>
-                        <Form.Select 
+                        <Form.Control 
+                            type="text" 
                             name="location" 
                             value={data.location || ''} 
                             onChange={handleInputChange}
-                        >
-                            <option value="">Select Location</option>
-                            {locationOptions.map(loc => (
-                                <option key={loc} value={loc}>{loc}</option>
-                            ))}
-                        </Form.Select>
+                            placeholder="e.g., Hyderabad, Remote, etc."
+                        />
                     </Form.Group>
                 </Col>
             </Row>
@@ -434,10 +402,10 @@ const InternshipMasterForm = ({ data, setData, techStackOptions, loading, techSt
                 techProgress: [],
                 mappingOffers: 0,
                 technologies: '',
-                internshipStartDate: null,
-                stackCompletionDate: null,
+                internshipStartDate: '', // Changed to string
+                stackCompletionDate: '', // Changed to string
                 internshipDuration: '',
-                stipendPerMonth: 0,
+                stipendPerMonth: '',     // Changed to string
                 location: ''
             }];
             return { ...prev, mappings: newMappings };
@@ -462,10 +430,10 @@ const InternshipMasterForm = ({ data, setData, techStackOptions, loading, techSt
                     techProgress: [],
                     mappingOffers: 0,
                     technologies: '',
-                    internshipStartDate: null,
-                    stackCompletionDate: null,
+                    internshipStartDate: '', // Changed to string
+                    stackCompletionDate: '', // Changed to string
                     internshipDuration: '',
-                    stipendPerMonth: 0,
+                    stipendPerMonth: '',     // Changed to string
                     location: ''
                 }]
             }));
@@ -957,9 +925,9 @@ const InternshipsTracker = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [newRowData, setNewRowData] = useState({});
-    const [searchTerm, setSearchTerm] = useState(''); // Added search term state
+    const [searchTerm, setSearchTerm] = useState('');
     
-    // --- START CSV UPLOAD STATE ---
+    // CSV UPLOAD STATE
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [uploadTargetSheet, setUploadTargetSheet] = useState('');
     const [csvFile, setCsvFile] = useState(null);
@@ -968,7 +936,6 @@ const InternshipsTracker = () => {
     const [csvError, setCsvError] = useState('');
     const [uploadingCsv, setUploadingCsv] = useState(false);
     const fileInputRef = useRef(null);
-    // --- END CSV UPLOAD STATE ---
 
     const initialNewInternshipState = useMemo(() => ({
         companies: '', 
@@ -982,10 +949,10 @@ const InternshipsTracker = () => {
             techProgress: [],
             mappingOffers: 0,
             technologies: '',
-            internshipStartDate: null,
-            stackCompletionDate: null,
+            internshipStartDate: '', // Changed to string
+            stackCompletionDate: '', // Changed to string
             internshipDuration: '',
-            stipendPerMonth: 0,
+            stipendPerMonth: '',     // Changed to string
             location: ''
         }]
     }), []);
@@ -1019,7 +986,7 @@ const InternshipsTracker = () => {
             fetchData(activeSheet);
         }
         setCurrentPage(1);
-        setSearchTerm(''); // Reset search term when changing sheets
+        setSearchTerm('');
     }, [activeSheet, fetchData]);
     
     useEffect(() => {
@@ -1098,7 +1065,6 @@ const InternshipsTracker = () => {
             return;
         }
         
-        // Validate each mapping has at least one tech stack
         const invalidMapping = (newInternship.mappings || []).find(
             mapping => !mapping.techProgress || mapping.techProgress.length === 0
         );
@@ -1120,19 +1086,17 @@ const InternshipsTracker = () => {
 
     const handleOpenEditModal = (rowData, sheet) => {
         if (sheet === 'internship-master') {
-            // Ensure mappings array exists (for backward compatibility)
             const preparedData = { ...rowData };
             
-            // If there are no mappings yet, create initial structure from legacy fields
             if (!preparedData.mappings || preparedData.mappings.length === 0) {
                 preparedData.mappings = [{
                     techProgress: preparedData.techProgress || [],
                     mappingOffers: 0,
                     technologies: '',
-                    internshipStartDate: preparedData.internshipStartDate || null,
-                    stackCompletionDate: preparedData.stackCompletionDate || null,
+                    internshipStartDate: preparedData.internshipStartDate || '',
+                    stackCompletionDate: preparedData.stackCompletionDate || '',
                     internshipDuration: '',
-                    stipendPerMonth: 0,
+                    stipendPerMonth: '',
                     location: ''
                 }];
             }
@@ -1182,13 +1146,7 @@ const InternshipsTracker = () => {
         return 'text-warning';
     };
 
-    // Format stipend with commas for display
-    const formatStipend = (value) => {
-        if (!value) return '';
-        return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    };
-
-    // --- START CSV UPLOAD FUNCTIONS ---
+    // CSV UPLOAD FUNCTIONS
     const handleOpenUploadModal = (sheetKey) => {
         setUploadTargetSheet(sheetKey);
         setCsvData([]);
@@ -1235,7 +1193,7 @@ const InternshipsTracker = () => {
         setSuccess('');
         try {
             await internshipsTrackerService.bulkUploadSheetData(uploadTargetSheet, csvData);
-            await fetchData(uploadTargetSheet); // Refresh data for the current sheet
+            await fetchData(uploadTargetSheet);
             setSuccess('CSV data uploaded successfully!');
             setTimeout(() => handleCloseUploadModal(), 1500);
         } catch (err) {
@@ -1244,12 +1202,11 @@ const InternshipsTracker = () => {
             setUploadingCsv(false);
         }
     };
-    // --- END CSV UPLOAD FUNCTIONS ---
 
     const PaginationControls = ({ totalRows }) => {
         const handleRowsPerPageChange = (e) => {
             setRowsPerPage(Number(e.target.value));
-            setCurrentPage(1); // Reset to first page
+            setCurrentPage(1);
         };
     
         const handlePageChange = (page) => {
@@ -1348,9 +1305,7 @@ const InternshipsTracker = () => {
             return;
         }
         
-        // Flatten the nested mappings structure for CSV export
         const csvRows = sheetData.flatMap(company => {
-            // If no mappings, create a single row
             if (!company.mappings || company.mappings.length === 0) {
                 return [{
                     "COMPANIES": company.companies || '',
@@ -1371,9 +1326,7 @@ const InternshipsTracker = () => {
                 }];
             }
             
-            // Create a row for each mapping
             return (company.mappings || []).map(mapping => {
-                // Format tech stack progress
                 const techStacksProgress = (mapping.techProgress || [])
                     .map(tp => {
                         const progress = tp.manualProgress !== null && tp.manualProgress !== undefined 
@@ -1394,10 +1347,10 @@ const InternshipsTracker = () => {
                     "MAPPING OFFERS": mapping.mappingOffers || 0,
                     "TECH STACKS & PROGRESS": techStacksProgress,
                     "TECHNOLOGIES": mapping.technologies || '',
-                    "INTERNSHIP START": mapping.internshipStartDate ? new Date(mapping.internshipStartDate).toLocaleDateString('en-CA') : '',
-                    "STACK COMPLETION": mapping.stackCompletionDate ? new Date(mapping.stackCompletionDate).toLocaleDateString('en-CA') : '',
+                    "INTERNSHIP START": mapping.internshipStartDate || '',
+                    "STACK COMPLETION": mapping.stackCompletionDate || '',
                     "INTERNSHIP DURATION": mapping.internshipDuration || '',
-                    "STIPEND PER MONTH": mapping.stipendPerMonth || 0,
+                    "STIPEND PER MONTH": mapping.stipendPerMonth || '',
                     "LOCATION": mapping.location || ''
                 };
             });
@@ -1515,10 +1468,8 @@ const InternshipsTracker = () => {
 
     // Render tech stack mapping display row
     const renderTechStackMapping = (company, mapping, index) => {
-        // Only show company info in first mapping row
         const isFirstMapping = index === 0;
         
-        // Get the tech stack progress info
         const techStacksDisplay = (mapping.techProgress || []).map(tp => {
             const progressData = techStackProgress.find(p => p.name === tp.techStackName);
             const progressValue = tp.manualProgress ?? (progressData ? Math.round(progressData.completionPercentage) : 0);
@@ -1538,17 +1489,17 @@ const InternshipsTracker = () => {
                         <td rowSpan={company.mappings?.length || 1}>{company.roles}</td>
                         <td rowSpan={company.mappings?.length || 1}>{company.internshipOffers}</td>
                         <td rowSpan={company.mappings?.length || 1}>
-                        <span className={`badge ${
-    company.companyStatus === 'Active' ? 'bg-success' : 
-    company.companyStatus === 'Hold' ? 'bg-warning' : 
-    'bg-secondary'
-}`}>
-    {company.companyStatus}
-</span>
+                            <span className={`badge ${
+                                company.companyStatus === 'Active' ? 'bg-success' : 
+                                company.companyStatus === 'Hold' ? 'bg-warning' : 
+                                'bg-secondary'
+                            }`}>
+                                {company.companyStatus}
+                            </span>
                         </td>
                         <td rowSpan={company.mappings?.length || 1} style={{ maxWidth: '200px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
-    {(company.companyStatus === 'Inactive' || company.companyStatus === 'Hold') ? company.reasonInactive : ''}
-</td>
+                            {(company.companyStatus === 'Inactive' || company.companyStatus === 'Hold') ? company.reasonInactive : ''}
+                        </td>
                         <td rowSpan={company.mappings?.length || 1}>{company.studentMappingMethod}</td>
                         <td rowSpan={company.mappings?.length || 1}>{company.studentMappingCounts}</td>
                     </>
@@ -1556,11 +1507,10 @@ const InternshipsTracker = () => {
                 <td>{mapping.mappingOffers}</td>
                 <td style={{minWidth: '200px'}}>{techStacksDisplay}</td>
                 <td style={{width: '180px', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis'}}>{mapping.technologies || ''}</td>
-
-                <td>{mapping.internshipStartDate ? new Date(mapping.internshipStartDate).toLocaleDateString() : ''}</td>
-                <td>{mapping.stackCompletionDate ? new Date(mapping.stackCompletionDate).toLocaleDateString() : ''}</td>
+                <td>{mapping.internshipStartDate || ''}</td>
+                <td>{mapping.stackCompletionDate || ''}</td>
                 <td>{mapping.internshipDuration || ''}</td>
-                <td>{formatStipend(mapping.stipendPerMonth)}</td>
+                <td>{mapping.stipendPerMonth || ''}</td>
                 <td>{mapping.location || ''}</td>
                 {user.role === 'admin' && isFirstMapping && (
                     <td rowSpan={company.mappings?.length || 1} className="text-center">
@@ -1595,12 +1545,10 @@ const InternshipsTracker = () => {
             return (<div className="text-center py-5"><Spinner animation="border" variant="primary" /><p className="mt-2 text-muted">Loading data...</p></div>);
         }
         
-        // --- ADD ACTION BUTTONS TO CARD HEADER ---
         const cardHeader = (title, showAddButton = true, showUploadButton = true, showExportButton = true, onAddClick = null, onUploadClick = null, onExportClick = null) => (
             <Card.Header as="h6" className="bg-light d-flex justify-content-between align-items-center">
                 {title}
                 <div className="d-flex gap-2">
-                    {/* Search input box for Internship Master */}
                     {activeSheet === 'internship-master' && (
                         <div className="input-group input-group-sm" style={{ width: '250px' }}>
                             <Form.Control
@@ -1690,22 +1638,19 @@ const InternshipsTracker = () => {
                                        )}
                                        
                                        {paginatedData.map(company => {
-                                           // Check if company has mappings
                                            if (company.mappings && company.mappings.length > 0) {
-                                               // Render a row for each mapping
                                                return company.mappings.map((mapping, idx) => 
                                                    renderTechStackMapping(company, mapping, idx)
                                                );
                                            } else {
-                                               // Backward compatibility - render legacy data structure
                                                const legacyMapping = {
                                                    techProgress: company.techProgress || [],
                                                    mappingOffers: 0,
                                                    technologies: '',
-                                                   internshipStartDate: company.internshipStartDate,
-                                                   stackCompletionDate: company.stackCompletionDate,
+                                                   internshipStartDate: company.internshipStartDate || '',
+                                                   stackCompletionDate: company.stackCompletionDate || '',
                                                    internshipDuration: company.internshipDuration || '',
-                                                   stipendPerMonth: company.stipendPerMonth || 0,
+                                                   stipendPerMonth: company.stipendPerMonth || '',
                                                    location: company.location || ''
                                                };
                                                
@@ -1742,13 +1687,13 @@ const InternshipsTracker = () => {
    return (
        <div className="container-fluid p-md-1">
            <div className="mb-3">
-           <Nav className="nav-tabs border-bottom-0 bg-transparent" activeKey={activeSheet} onSelect={(k) => setActiveSheet(k)}>
+               <Nav className="nav-tabs border-bottom-0 bg-transparent" activeKey={activeSheet} onSelect={(k) => setActiveSheet(k)}>
                    {Object.entries(subsheetConfigs).map(([key, config]) => (
                        <Nav.Item key={key}>
                            <Nav.Link 
-    eventKey={key} 
-    className={`px-4 py-2 border-0 bg-transparent ${activeSheet === key ? 'text-primary border-bottom border-primary border-2' : 'text-secondary'}`}
->
+                               eventKey={key} 
+                               className={`px-4 py-2 border-0 bg-transparent ${activeSheet === key ? 'text-primary border-bottom border-primary border-2' : 'text-secondary'}`}
+                           >
                                {config.name}
                            </Nav.Link>
                        </Nav.Item>
@@ -1913,7 +1858,6 @@ const InternshipsTracker = () => {
                    line-height: 18px;
                    font-weight: 600;
                }
-               /* New styles for updated UI */
                .nav-tabs {
                    border-bottom: 1px solid #dee2e6;
                }
