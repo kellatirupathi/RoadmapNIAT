@@ -1,6 +1,6 @@
 // client/src/App.jsx
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import useAuth from './hooks/useAuth';
@@ -47,6 +47,7 @@ const AppRoutes = () => {
   const { isAuthenticated, loading, user } = useAuth();
   const [pageLoading, setPageLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const location = useLocation();
 
   useEffect(() => {
     if (window.innerWidth < 1024) {
@@ -83,19 +84,19 @@ const AppRoutes = () => {
     }
   };
 
-  // --- START MODIFIED LOGIC ---
   const canAccessPostInternships = 
       user.role === 'admin' || 
       user.role === 'manager' || 
       user.role === 'crm' ||
       (user.role === 'instructor' && user.canAccessPostInternships);
-  // --- END MODIFIED LOGIC ---
 
   return (
     <div className="flex h-screen bg-gray-100">
       <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} setPageLoading={setPageLoading} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar toggleSidebar={toggleSidebar} />
+        {/* START: Conditionally render the TopBar */}
+        {location.pathname !== '/internships-tracker' && <TopBar toggleSidebar={toggleSidebar} />}
+        {/* END: Conditionally render the TopBar */}
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 md:p-6 relative">
           {pageLoading && <PageLoader />}
           <div className={`transition-opacity duration-300 ${pageLoading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
@@ -105,7 +106,6 @@ const AppRoutes = () => {
               <Route path="/internships-tracker" element={<ProtectedRoute element={<InternshipsTracker user={user} />} requiredRoles={['admin', 'manager']} />} />
               <Route path="/critical-points" element={<ProtectedRoute element={<CriticalPointsPage />} requiredRoles={['admin', 'manager', 'crm', 'instructor']} />} />
               
-              {/* --- USE UPDATED CONDITION FOR ROUTING --- */}
               <Route path="/post-internships" element={canAccessPostInternships ? <ProtectedRoute element={<PostInternships />} /> : <Navigate to="/not-authorized" replace />} />
               <Route path="/post-internships/:studentId/tasks" element={canAccessPostInternships ? <ProtectedRoute element={<StudentTaskTrackerPage />} /> : <Navigate to="/not-authorized" replace />} />
               
