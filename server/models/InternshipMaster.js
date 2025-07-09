@@ -1,3 +1,5 @@
+// File Path: src/models/InternshipMaster.js
+
 import mongoose from 'mongoose';
 
 // Schema for each tech stack mapping within a company
@@ -10,10 +12,10 @@ const TechMappingSchema = new mongoose.Schema({
     // Mapping specific fields
     mappingOffers: { type: Number, default: 0 },
     technologies: { type: String, default: '' },
-    internshipStartDate: { type: Date, default: null },
-    stackCompletionDate: { type: Date, default: null },
+    internshipStartDate: { type: String, default: '' }, // Changed from Date to String
+    stackCompletionDate: { type: String, default: '' }, // Changed from Date to String
     internshipDuration: { type: String, default: '' },
-    stipendPerMonth: { type: Number, default: 0 },
+    stipendPerMonth: { type: String, default: '' }, // Changed from Number to String
     location: { type: String, default: '' }
 }, { _id: false });
 
@@ -22,7 +24,7 @@ const InternshipMasterSchema = new mongoose.Schema({
     companies: { type: String, default: '', required: true },
     roles: { type: String, default: '' },
     internshipOffers: { type: Number, default: 0 },
-    companyStatus: { type: String, enum: ['Active', 'Inactive', ''], default: 'Active' },
+    companyStatus: { type: String, enum: ['Active', 'Inactive', 'Hold', ''], default: 'Active' },
     reasonInactive: { type: String, default: '' },
     studentMappingMethod: { type: String, default: '' },
     
