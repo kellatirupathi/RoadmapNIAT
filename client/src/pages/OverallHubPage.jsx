@@ -266,7 +266,7 @@ const OverallHubPage = () => {
                                                             <option value="Reject">Reject</option>
                                                         </Form.Select>
                                                     ) : (
-                                                        <span>{currentStatus || <span className="text-muted">N/A</span>}</span>
+                                                        <span>{currentStatus || <span className="text-muted"></span>}</span>
                                                     )
                                                 )}
                                             </td>
