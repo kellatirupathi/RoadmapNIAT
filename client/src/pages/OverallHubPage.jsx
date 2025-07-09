@@ -1,19 +1,19 @@
 // client/pages/OverallHubPage.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
-// --- MODIFICATION: Added Badge and Form imports ---
-import { Card, Table, Spinner, Alert, Modal, Button, Badge, Form } from 'react-bootstrap';
+// --- MODIFICATION: Added InputGroup import ---
+import { Card, Table, Spinner, Alert, Modal, Button, Badge, Form, InputGroup } from 'react-bootstrap';
 import useAuth from '../hooks/useAuth.js';
 import studentsTrackerService from '../services/studentsTrackerService.js';
 import { ratingCalculations, sheetConfig } from '../utils/studentsTrackerConfig.js';
-// --- NEW IMPORT: Add the service for the HUB status ---
 import overallHubService from '../services/overallHubService.js';
+// --- NEW IMPORT: Added papaparse for CSV export ---
+import Papa from 'papaparse';
 
 
 const OverallHubPage = () => {
     const { user } = useAuth();
 
-    // Secure the component: redirect if the user role/permission doesn't match
     if ((user.role === 'instructor' || user.role === 'crm') && !user.canAccessOverallHub) {
         return <Navigate to="/not-authorized" replace />;
     }
@@ -21,7 +21,6 @@ const OverallHubPage = () => {
 
 
     const [aggregatedData, setAggregatedData] = useState([]);
-    // --- NEW STATE: To hold the saved overall statuses ---
     const [hubStatuses, setHubStatuses] = useState(new Map());
     const [actionLoading, setActionLoading] = useState({});
     const [loading, setLoading] = useState(true);
@@ -33,48 +32,36 @@ const OverallHubPage = () => {
     const [modalColumns, setModalColumns] = useState([]);
     const [modalLoading, setModalLoading] = useState(false);
 
+    // --- NEW STATE: To hold the search term ---
+    const [searchTerm, setSearchTerm] = useState('');
+
     const fetchAllData = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
-            // Fetch all raw data and also the saved hub statuses
             const [
-                aseRes, 
-                interactionRes, 
-                assignmentRes, 
-                incrutierRes, 
-                closingRes,
-                hubStatusesRes // New call
+                aseRes, interactionRes, assignmentRes, incrutierRes, 
+                closingRes, hubStatusesRes
             ] = await Promise.all([
-                studentsTrackerService.aseRatings.getAll(),
-                studentsTrackerService.companyInteractions.getAll(),
-                studentsTrackerService.assignmentRatings.getAll(),
-                studentsTrackerService.incrutierRatings.getAll(),
-                studentsTrackerService.companyClosings.getAll(),
-                overallHubService.getAllStatuses() // Fetching statuses
+                studentsTrackerService.aseRatings.getAll(), studentsTrackerService.companyInteractions.getAll(),
+                studentsTrackerService.assignmentRatings.getAll(), studentsTrackerService.incrutierRatings.getAll(),
+                studentsTrackerService.companyClosings.getAll(), overallHubService.getAllStatuses()
             ]);
             
-            // Store the statuses in a Map for quick lookup
             const statusMap = new Map();
             if (hubStatusesRes.data) {
-                hubStatusesRes.data.forEach(s => {
-                    const key = `${s.companyName}|${s.niatId}`;
-                    statusMap.set(key, s.overallStatus);
-                });
+                hubStatusesRes.data.forEach(s => statusMap.set(`${s.companyName}|${s.niatId}`, s.overallStatus));
             }
             setHubStatuses(statusMap);
 
             const hubMap = new Map();
             const rawDataCache = {
-                aseRatings: aseRes.data || [],
-                companyInteractions: interactionRes.data || [],
-                assignmentRatings: assignmentRes.data || [],
-                incrutierRatings: incrutierRes.data || [],
+                aseRatings: aseRes.data || [], companyInteractions: interactionRes.data || [],
+                assignmentRatings: assignmentRes.data || [], incrutierRatings: incrutierRes.data || [],
                 companyClosings: closingRes.data || [],
             };
             
-            const allItems = Object.values(rawDataCache).flat();
-            allItems.forEach(item => {
+            Object.values(rawDataCache).flat().forEach(item => {
                 const key = `${item.companyName}|${item.niatId}`;
                 if (!hubMap.has(key)) {
                     hubMap.set(key, {
@@ -86,115 +73,61 @@ const OverallHubPage = () => {
             
             hubMap.forEach((entry, key) => {
                 const [company, niat] = key.split('|');
-
-                const aseRecords = rawDataCache.aseRatings.filter(i => i.companyName === company && i.niatId === niat);
-                const interactionRecords = rawDataCache.companyInteractions.filter(i => i.companyName === company && i.niatId === niat);
-                const incrutierRecords = rawDataCache.incrutierRatings.filter(i => i.companyName === company && i.niatId === niat);
-                const closingRecords = rawDataCache.companyClosings.filter(i => i.companyName === company && i.niatId === niat);
-                const assignmentRecords = rawDataCache.assignmentRatings.filter(i => i.niatId === niat);
-
                 const getHighestScore = (records, calcFn) => records.length > 0 ? Math.max(...records.map(r => parseInt((calcFn(r) || "0").split('/')[0]) || 0)) : 0;
                 
-                entry.aseRating = getHighestScore(aseRecords, ratingCalculations.aseRatings);
-                entry.incrutierRating = getHighestScore(incrutierRecords, ratingCalculations.incrutierRatings);
-                entry.companyInteractionRating = getHighestScore(interactionRecords, ratingCalculations.companyInteractions);
-                entry.companyClosingRating = getHighestScore(closingRecords, ratingCalculations.companyClosings);
-
+                entry.aseRating = getHighestScore(rawDataCache.aseRatings.filter(i => i.companyName === company && i.niatId === niat), ratingCalculations.aseRatings);
+                entry.incrutierRating = getHighestScore(rawDataCache.incrutierRatings.filter(i => i.companyName === company && i.niatId === niat), ratingCalculations.incrutierRatings);
+                entry.companyInteractionRating = getHighestScore(rawDataCache.companyInteractions.filter(i => i.companyName === company && i.niatId === niat), ratingCalculations.companyInteractions);
+                entry.companyClosingRating = getHighestScore(rawDataCache.companyClosings.filter(i => i.companyName === company && i.niatId === niat), ratingCalculations.companyClosings);
+                const assignmentRecords = rawDataCache.assignmentRatings.filter(i => i.niatId === niat);
                 if (assignmentRecords.length > 0) {
                     const total = assignmentRecords.reduce((sum, a) => sum + (parseInt(a.marks?.split('/')[0], 10) || 0), 0);
-                    const count = assignmentRecords.length;
-                    entry.assignmentRating = Math.round((total / count) * 2); // Scale to /20
+                    entry.assignmentRating = Math.round((total / assignmentRecords.length) * 2);
                 }
             });
 
             const finalData = Array.from(hubMap.values()).map(entry => ({
                 ...entry,
-                total: (entry.aseRating || 0) + 
-                       (entry.companyInteractionRating || 0) + 
-                       (entry.assignmentRating || 0) + 
-                       (entry.incrutierRating || 0) + 
-                       (entry.companyClosingRating || 0),
+                total: (entry.aseRating || 0) + (entry.companyInteractionRating || 0) + (entry.assignmentRating || 0) + (entry.incrutierRating || 0) + (entry.companyClosingRating || 0),
             }));
 
             setAggregatedData(finalData);
             localStorage.setItem('hubRawDataCache', JSON.stringify(rawDataCache));
 
-        } catch (err) {
-            setError('Failed to load and process HUB data.');
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
+        } catch (err) { setError('Failed to load and process HUB data.'); console.error(err);
+        } finally { setLoading(false); }
     }, []);
 
-    useEffect(() => {
-        fetchAllData();
-    }, [fetchAllData]);
+    useEffect(() => { fetchAllData(); }, [fetchAllData]);
     
-    // --- MODIFICATION: This function now correctly handles an empty `newStatus` string. ---
     const handleOverallStatusChange = async (hubEntry, newStatus) => {
         const rowKey = `${hubEntry.companyName}-${hubEntry.niatId}`;
-        setActionLoading(prev => ({...prev, [rowKey]: true}));
-        setError('');
-        
+        setActionLoading(prev => ({...prev, [rowKey]: true})); setError('');
         try {
-            await overallHubService.updateStatus({
-                companyName: hubEntry.companyName,
-                niatId: hubEntry.niatId,
-                studentName: hubEntry.studentName,
-                newStatus: newStatus // Directly pass the value from the dropdown
-            });
-            // Update local state to reflect the change immediately
-            setHubStatuses(prevMap => {
-                const newMap = new Map(prevMap);
-                newMap.set(`${hubEntry.companyName}|${hubEntry.niatId}`, newStatus);
-                return newMap;
-            });
-
-        } catch(err) {
-            setError('Failed to update status. Please try again.');
-        } finally {
-            setActionLoading(prev => ({...prev, [rowKey]: false}));
-        }
+            await overallHubService.updateStatus({ companyName: hubEntry.companyName, niatId: hubEntry.niatId, studentName: hubEntry.studentName, newStatus });
+            setHubStatuses(prevMap => new Map(prevMap).set(`${hubEntry.companyName}|${hubEntry.niatId}`, newStatus));
+        } catch(err) { setError('Failed to update status. Please try again.');
+        } finally { setActionLoading(prev => ({...prev, [rowKey]: false})); }
     };
 
     const handleScoreClick = async (hubEntry, ratingKey) => {
-        const config = sheetConfig[ratingKey];
-        if (!config) return;
-
+        const config = sheetConfig[ratingKey]; if (!config) return;
         setModalTitle(`${config.title} for ${hubEntry.studentName} @ ${hubEntry.companyName}`);
-        setModalColumns(config.columns);
-        setModalLoading(true);
-        setShowDetailsModal(true);
-
+        setModalColumns(config.columns); setModalLoading(true); setShowDetailsModal(true);
         try {
             const cachedData = JSON.parse(localStorage.getItem('hubRawDataCache'));
             const dataToFilter = cachedData[ratingKey] || [];
-            
-            const filtered = dataToFilter.filter(item => 
-                item.companyName === hubEntry.companyName && 
-                item.niatId === hubEntry.niatId
-            );
-
-            const dataWithMarks = filtered.map(item => ({
-                ...item,
-                overallMarks: ratingCalculations[ratingKey] ? ratingCalculations[ratingKey](item) : 'N/A'
-            }));
-
+            const filtered = dataToFilter.filter(item => item.companyName === hubEntry.companyName && item.niatId === hubEntry.niatId);
+            const dataWithMarks = filtered.map(item => ({ ...item, overallMarks: ratingCalculations[ratingKey] ? ratingCalculations[ratingKey](item) : 'N/A' }));
             setModalData(dataWithMarks);
-        } catch(err) {
-            console.error("Error fetching details for modal:", err);
-            setModalData([]);
-        } finally {
-            setModalLoading(false);
-        }
+        } catch(err) { console.error("Error fetching details for modal:", err); setModalData([]);
+        } finally { setModalLoading(false); }
     };
     
     const formatDateForDisplay = (dateString) => {
         if (!dateString) return '';
         try { return new Date(dateString).toLocaleDateString('en-US'); } catch (e) { return 'Invalid Date'; }
     };
-    
 
     const getScoreColor = (score, maxScore) => {
         if (!maxScore || maxScore === 0) return 'text-muted';
@@ -205,19 +138,83 @@ const OverallHubPage = () => {
     };
 
     const renderClosingStatus = (totalScore) => {
-        let status = 'Risk';
-        let variant = 'danger';
-
+        let status = 'Risk', variant = 'danger';
         if (totalScore >= 90) { status = 'Can Close'; variant = 'success'; } 
         else if (totalScore >= 70) { status = 'Moderate'; variant = 'warning'; }
-
         return <Badge bg={variant} pill>{status}</Badge>;
+    };
+
+    // --- NEW FUNCTION: To filter the aggregated data based on the search term ---
+    const filteredAndSortedData = useMemo(() => {
+        let dataToFilter = [...aggregatedData];
+        if (searchTerm) {
+            const lowerCaseSearchTerm = searchTerm.toLowerCase();
+            dataToFilter = dataToFilter.filter(item =>
+                (item.companyName?.toLowerCase().includes(lowerCaseSearchTerm)) ||
+                (item.niatId?.toLowerCase().includes(lowerCaseSearchTerm)) ||
+                (item.studentName?.toLowerCase().includes(lowerCaseSearchTerm))
+            );
+        }
+        return dataToFilter.sort((a,b) => b.total - a.total);
+    }, [aggregatedData, searchTerm]);
+
+    // --- NEW FUNCTION: To export the filtered data to CSV ---
+    const handleExportCSV = () => {
+        if (filteredAndSortedData.length === 0) {
+            alert("No data available to export.");
+            return;
+        }
+
+        const dataForCSV = filteredAndSortedData.map(item => ({
+            "Company": item.companyName,
+            "NIAT ID": item.niatId,
+            "Student": item.studentName,
+            "ASE Rating (/20)": item.aseRating,
+            "Interaction Rating (/20)": item.companyInteractionRating,
+            "Assignment Rating (/20)": item.assignmentRating,
+            "Incrutier Rating (/20)": item.incrutierRating,
+            "Closing Rating (/20)": item.companyClosingRating,
+            "Overall (/100)": item.total,
+            "Closing Status": item.total >= 90 ? 'Can Close' : item.total >= 70 ? 'Moderate' : 'Risk',
+            "Overall Status": hubStatuses.get(`${item.companyName}|${item.niatId}`) || '',
+        }));
+
+        const csv = Papa.unparse(dataForCSV);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Overall_Student_HUB_Export.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     return (
         <div>
              <Card className="shadow-sm">
-                <Card.Header as="h5">Overall Student HUB</Card.Header>
+                {/* --- MODIFICATION: Added search and export buttons to the header --- */}
+                <Card.Header as="h5" className="d-flex justify-content-between align-items-center">
+                    Overall Student HUB
+                    <div className="d-flex align-items-center gap-2">
+                        <InputGroup size="sm" style={{width: '250px'}}>
+                            <Form.Control
+                                placeholder="Search records..."
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                            />
+                            {searchTerm && 
+                                <Button variant="outline-secondary" onClick={() => setSearchTerm('')} title="Clear search">
+                                    <i className="fas fa-times"></i>
+                                </Button>
+                            }
+                        </InputGroup>
+                        <Button variant="outline-success" size="sm" onClick={handleExportCSV}>
+                            <i className="fas fa-file-csv me-2"></i>Export
+                        </Button>
+                    </div>
+                </Card.Header>
                 <Card.Body>
                     {error && <Alert variant="danger" onClose={() => setError('')} dismissible>{error}</Alert>}
                     {loading ? <div className="text-center p-5"><Spinner /></div> : (
@@ -235,11 +232,12 @@ const OverallHubPage = () => {
                                         <th className="text-center">Closing Rating (/20)</th>
                                         <th className="text-center">Overall (/100)</th>
                                         <th className="text-center">Closing Status</th>
-                                        <th className="text-center" style={{minWidth: '110px'}}>Overall Status</th>
+                                        <th className="text-center" style={{minWidth: '150px'}}>Overall Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {aggregatedData.sort((a,b) => b.total - a.total).map(item => {
+                                    {/* --- MODIFICATION: Loop over the new `filteredAndSortedData` array --- */}
+                                    {filteredAndSortedData.map(item => {
                                         const statusKey = `${item.companyName}|${item.niatId}`;
                                         const rowKey = `${item.companyName}-${item.niatId}`;
                                         const currentStatus = hubStatuses.get(statusKey) || '';
@@ -266,7 +264,7 @@ const OverallHubPage = () => {
                                                             <option value="Reject">Reject</option>
                                                         </Form.Select>
                                                     ) : (
-                                                        <span>{currentStatus || <span className="text-muted"></span>}</span>
+                                                        <span>{currentStatus || <span className="text-muted">N/A</span>}</span>
                                                     )
                                                 )}
                                             </td>
