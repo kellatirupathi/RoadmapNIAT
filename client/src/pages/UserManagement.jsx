@@ -18,7 +18,10 @@ const UserManagement = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   
   const [newUser, setNewUser] = useState({
-    username: '', email: '', password: '', firstName: '', lastName: '', role: 'crm', assignedTechStacks: [], canManageRoadmaps: false, techStackPermission: 'none', canAccessCriticalPoints: false, canAccessPostInternships: false
+    username: '', email: '', password: '', firstName: '', lastName: '', role: 'crm', 
+    assignedTechStacks: [], canManageRoadmaps: false, techStackPermission: 'none', 
+    canAccessCriticalPoints: false, canAccessPostInternships: false, 
+    canAccessStudentsTracker: false, canAccessOverallHub: false
   });
   
   const [resetPassword, setResetPassword] = useState({ newPassword: '', confirmPassword: '' });
@@ -64,7 +67,7 @@ const UserManagement = () => {
   }, []);
 
   const handleAddUserClick = () => {
-    setNewUser({ username: '', email: '', password: '', firstName: '', lastName: '', role: 'crm', assignedTechStacks: [], canManageRoadmaps: false, techStackPermission: 'none', canAccessCriticalPoints: false, canAccessPostInternships: false });
+    setNewUser({ username: '', email: '', password: '', firstName: '', lastName: '', role: 'crm', assignedTechStacks: [], canManageRoadmaps: false, techStackPermission: 'none', canAccessCriticalPoints: false, canAccessPostInternships: false, canAccessStudentsTracker: false, canAccessOverallHub: false });
     setError(null); setSuccess(null);
     setActiveModalTab('details');
     setShowAddUserModal(true);
@@ -103,6 +106,8 @@ const UserManagement = () => {
       techStackPermission: userToEdit.techStackPermission || 'none',
       canAccessCriticalPoints: userToEdit.canAccessCriticalPoints || false,
       canAccessPostInternships: userToEdit.canAccessPostInternships || false,
+      canAccessStudentsTracker: userToEdit.canAccessStudentsTracker || false,
+      canAccessOverallHub: userToEdit.canAccessOverallHub || false,
     });
     setActiveModalTab('details');
     setError(null); setSuccess(null);
@@ -125,10 +130,11 @@ const UserManagement = () => {
     setError(null); setSuccess(null);
     setActionLoading(true);
     try {
-      const { _id, username, email, firstName, lastName, role, isActive, assignedTechStacks, canManageRoadmaps, techStackPermission, canAccessCriticalPoints, canAccessPostInternships } = selectedUser;
+      const { _id, username, email, firstName, lastName, role, isActive, assignedTechStacks, canManageRoadmaps, techStackPermission, canAccessCriticalPoints, canAccessPostInternships, canAccessStudentsTracker, canAccessOverallHub } = selectedUser;
       await userService.updateUser(_id, {
         username, email, firstName, lastName, role, isActive,
-        assignedTechStacks, canManageRoadmaps, techStackPermission, canAccessCriticalPoints, canAccessPostInternships
+        assignedTechStacks, canManageRoadmaps, techStackPermission, canAccessCriticalPoints, canAccessPostInternships,
+        canAccessStudentsTracker, canAccessOverallHub
       });
       await fetchUsers();
       setShowEditUserModal(false);
@@ -236,6 +242,11 @@ const UserManagement = () => {
     );
   };
 
+  // --- START MODIFICATION: Define which roles can see the permissions tab ---
+  const currentUserRoleForModal = showAddUserModal ? newUser.role : selectedUser?.role;
+  const canHavePermissions = currentUserRoleForModal === 'instructor' || currentUserRoleForModal === 'crm';
+  // --- END MODIFICATION ---
+
   return (
     <div className="">
       <Row className="mb-4 align-items-center">
@@ -264,9 +275,11 @@ const UserManagement = () => {
         <Modal.Header closeButton><Modal.Title><i className={`fas ${showAddUserModal ? 'fa-user-plus' : 'fa-user-edit'} me-2`}></i>{showAddUserModal ? 'Add New User' : 'Edit User Details'}</Modal.Title></Modal.Header>
         <Form onSubmit={showAddUserModal ? handleCreateUser : handleUpdateUser}>
           <Modal.Body>
+             {/* --- START MODIFICATION: Update 'disabled' logic for the permissions tab --- */}
              <Tabs activeKey={activeModalTab} onSelect={(k) => setActiveModalTab(k)} id="user-details-tabs" className="mb-3 nav-tabs-custom">
               <Tab eventKey="details" title="Details">
-                <div className="p-2">
+              {/*... details form fields ...*/}
+              <div className="p-2">
                   {error && <Alert variant="danger" className="py-2 small">{error}</Alert>}
                   <Form.Group className="mb-3"><Form.Label>Username*</Form.Label><Form.Control type="text" name="username" value={showAddUserModal ? newUser.username : selectedUser?.username || ''} onChange={showAddUserModal ? handleNewUserChange : handleEditUserChange} required /></Form.Group>
                   <Form.Group className="mb-3"><Form.Label>Email*</Form.Label><Form.Control type="email" name="email" value={showAddUserModal ? newUser.email : selectedUser?.email || ''} onChange={showAddUserModal ? handleNewUserChange : handleEditUserChange} required /></Form.Group>
@@ -279,31 +292,50 @@ const UserManagement = () => {
                   {showEditUserModal && selectedUser && (<Form.Group><Form.Check type="switch" name="isActive" id="user-active-switch" label={selectedUser.isActive ? "Active" : "Inactive"} checked={selectedUser.isActive} onChange={handleEditUserChange} /></Form.Group>)}
                 </div>
               </Tab>
-              <Tab eventKey="permissions" title="Permissions" disabled={(showAddUserModal ? newUser.role : selectedUser?.role) !== 'instructor'}>
+              <Tab eventKey="permissions" title="Permissions" disabled={!canHavePermissions}>
                 <div className="p-2">
-                  <p className="text-muted small">These settings only apply if the user's role is 'Instructor'.</p>
-                  <Form.Group className="mb-3"><Form.Label>General Permissions</Form.Label>
-                    <Form.Check type="switch" id="can-manage-roadmaps-switch" name="canManageRoadmaps" label="Allow to manage Roadmaps" checked={showAddUserModal ? newUser.canManageRoadmaps : selectedUser?.canManageRoadmaps || false} onChange={showAddUserModal ? handleNewUserChange : handleEditUserChange}/>
-                    <Form.Check type="switch" id="can-access-critical-points-switch" name="canAccessCriticalPoints" label="Allow to access Critical Points page" checked={showAddUserModal ? newUser.canAccessCriticalPoints : selectedUser?.canAccessCriticalPoints || false} onChange={showAddUserModal ? handleNewUserChange : handleEditUserChange} className="mt-2"/>
-                    {/* --- START NEW SWITCH --- */}
-                    <Form.Check
-                        type="switch"
-                        id="can-access-post-internships-switch"
-                        name="canAccessPostInternships"
-                        label="Allow to access Post-Internship Placements"
-                        checked={showAddUserModal ? newUser.canAccessPostInternships : selectedUser?.canAccessPostInternships || false}
-                        onChange={showAddUserModal ? handleNewUserChange : handleEditUserChange}
-                        className="mt-2"
-                    />
-                    {/* --- END NEW SWITCH --- */}
-                  </Form.Group>
-                  <Form.Group className="mb-3">
-                      <Form.Label>Tech Stack Permissions</Form.Label>
-                      <Form.Select name="techStackPermission" value={showAddUserModal ? newUser.techStackPermission : selectedUser?.techStackPermission || 'none'} onChange={showAddUserModal ? handleNewUserChange : handleEditUserChange}>
-                          <option value="none">None</option><option value="view">View Only</option><option value="edit">View and Edit</option>
-                      </Form.Select>
-                  </Form.Group>
-                  <Form.Group className="mb-3"><Form.Label>Assigned Tech Stacks</Form.Label><Form.Select multiple name="assignedTechStacks" value={showAddUserModal ? newUser.assignedTechStacks : selectedUser?.assignedTechStacks || []} onChange={showAddUserModal ? handleNewUserChange : handleEditUserChange} style={{ height: '120px' }}>{allTechStacksForDropdown.map(stack => (<option key={stack._id} value={stack._id}>{stack.name}</option>))}</Form.Select><Form.Text className="text-muted small">Hold Ctrl/Cmd to select multiple.</Form.Text></Form.Group>
+                   {/* --- START MODIFICATION: Conditionally render permissions based on role --- */}
+                  <p className="text-muted small">Configure additional page and feature access for this user.</p>
+
+                  {(currentUserRoleForModal === 'instructor') && (
+                    <>
+                      <Form.Group className="mb-3"><Form.Label>Instructor General Permissions</Form.Label>
+                        <Form.Check type="switch" id="can-manage-roadmaps-switch" name="canManageRoadmaps" label="Allow to manage Roadmaps" checked={showAddUserModal ? newUser.canManageRoadmaps : selectedUser?.canManageRoadmaps || false} onChange={showAddUserModal ? handleNewUserChange : handleEditUserChange}/>
+                        <Form.Check type="switch" id="can-access-critical-points-switch" name="canAccessCriticalPoints" label="Allow to access Critical Points page" checked={showAddUserModal ? newUser.canAccessCriticalPoints : selectedUser?.canAccessCriticalPoints || false} onChange={showAddUserModal ? handleNewUserChange : handleEditUserChange} className="mt-2"/>
+                        <Form.Check type="switch" id="can-access-post-internships-switch" name="canAccessPostInternships" label="Allow to access Post-Internship Placements" checked={showAddUserModal ? newUser.canAccessPostInternships : selectedUser?.canAccessPostInternships || false} onChange={showAddUserModal ? handleNewUserChange : handleEditUserChange} className="mt-2"/>
+                      </Form.Group>
+                      <Form.Group className="mb-3">
+                          <Form.Label>Tech Stack Permissions</Form.Label>
+                          <Form.Select name="techStackPermission" value={showAddUserModal ? newUser.techStackPermission : selectedUser?.techStackPermission || 'none'} onChange={showAddUserModal ? handleNewUserChange : handleEditUserChange}>
+                              <option value="none">None</option><option value="view">View Only</option><option value="edit">View and Edit</option>
+                          </Form.Select>
+                      </Form.Group>
+                      <Form.Group className="mb-3"><Form.Label>Assigned Tech Stacks</Form.Label><Form.Select multiple name="assignedTechStacks" value={showAddUserModal ? newUser.assignedTechStacks : selectedUser?.assignedTechStacks || []} onChange={showAddUserModal ? handleNewUserChange : handleEditUserChange} style={{ height: '120px' }}>{allTechStacksForDropdown.map(stack => (<option key={stack._id} value={stack._id}>{stack.name}</option>))}</Form.Select><Form.Text className="text-muted small">Hold Ctrl/Cmd to select multiple.</Form.Text></Form.Group>
+                    </>
+                  )}
+                  
+                  {(currentUserRoleForModal === 'instructor' || currentUserRoleForModal === 'crm') && (
+                     <Form.Group className="mb-3"><Form.Label>Page Access Permissions</Form.Label>
+                        <Form.Check
+                            type="switch"
+                            id="can-access-students-tracker-switch"
+                            name="canAccessStudentsTracker"
+                            label="Allow to access Students Tracker page"
+                            checked={showAddUserModal ? newUser.canAccessStudentsTracker : selectedUser?.canAccessStudentsTracker || false}
+                            onChange={showAddUserModal ? handleNewUserChange : handleEditUserChange}
+                        />
+                        <Form.Check
+                            type="switch"
+                            id="can-access-overall-hub-switch"
+                            name="canAccessOverallHub"
+                            label="Allow to access Overall HUB page"
+                            checked={showAddUserModal ? newUser.canAccessOverallHub : selectedUser?.canAccessOverallHub || false}
+                            onChange={showAddUserModal ? handleNewUserChange : handleEditUserChange}
+                            className="mt-2"
+                        />
+                     </Form.Group>
+                  )}
+                  {/* --- END MODIFICATION --- */}
                 </div>
               </Tab>
              </Tabs>
