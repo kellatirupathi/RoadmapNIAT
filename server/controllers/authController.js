@@ -63,9 +63,11 @@ export const login = async (req, res) => {
         canManageRoadmaps: user.canManageRoadmaps,
         techStackPermission: user.techStackPermission,
         canAccessCriticalPoints: user.canAccessCriticalPoints,
-        // --- START NEW FIELD ---
-        canAccessPostInternships: user.canAccessPostInternships
-        // --- END NEW FIELD ---
+        canAccessPostInternships: user.canAccessPostInternships,
+        // --- START NEW FIELDS ---
+        canAccessStudentsTracker: user.canAccessStudentsTracker,
+        canAccessOverallHub: user.canAccessOverallHub,
+        // --- END NEW FIELDS ---
       }
     });
   } catch (error) {
@@ -97,9 +99,11 @@ export const getCurrentUser = async (req, res) => {
         canManageRoadmaps: user.canManageRoadmaps,
         techStackPermission: user.techStackPermission,
         canAccessCriticalPoints: user.canAccessCriticalPoints,
-        // --- START NEW FIELD ---
-        canAccessPostInternships: user.canAccessPostInternships
-        // --- END NEW FIELD ---
+        canAccessPostInternships: user.canAccessPostInternships,
+        // --- START NEW FIELDS ---
+        canAccessStudentsTracker: user.canAccessStudentsTracker,
+        canAccessOverallHub: user.canAccessOverallHub,
+        // --- END NEW FIELDS ---
       }
     });
   } catch (error) {
