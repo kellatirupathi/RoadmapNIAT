@@ -110,9 +110,6 @@ const CompanywiseStudentsProgress = ({ user }) => {
         setCurrentPage(1); // Reset page on data load
     }, [fetchDependencies]);
     
-    // ===================================
-    // =========== NEW FIX ===============
-    // This is the correct function to handle saves from the EditableTable's inline form.
     const handleSaveTableRow = async (id, dataToUpdate) => {
         setActionLoading(true);
         setError('');
@@ -132,7 +129,6 @@ const CompanywiseStudentsProgress = ({ user }) => {
             setActionLoading(false);
         }
     };
-    // ===================================
 
     // Modal handlers
     const handleOpenAddModal = () => {
@@ -141,13 +137,9 @@ const CompanywiseStudentsProgress = ({ user }) => {
         setShowAddEditModal(true);
     };
     
-    // Note: The `handleOpenEditModal` is now correctly used for opening the modal,
-    // not for saving.
     const handleOpenEditModal = (item) => {
-        // Transform the saved data format to form format
         const students = [];
         
-        // Create a student entry with all tech assignments
         const student = {
             id: idCounter.current++,
             niatId: item.niatId || '',
@@ -160,7 +152,6 @@ const CompanywiseStudentsProgress = ({ user }) => {
         
         students.push(student);
         
-        // Set the form data
         setFormData({
             companyName: item.companyName || '',
             roleName: item.roleName || '',
@@ -274,7 +265,7 @@ const CompanywiseStudentsProgress = ({ user }) => {
 
             rows.forEach((row, rowIndex) => {
                 const studentIndex = startStudentIndex + rowIndex;
-                const columns = row.split('\t'); // Assuming tab-separated
+                const columns = row.split('\t'); 
                 
                 if (studentIndex < newStudents.length) {
                     if (columns.length > 0) newStudents[studentIndex].niatId = columns[0] || '';
@@ -286,36 +277,17 @@ const CompanywiseStudentsProgress = ({ user }) => {
         });
     };
     
-    // Save & Delete handlers
     const handleSaveForm = async () => {
-        // Validate form
-        if (!formData.companyName.trim()) {
-            setError("Company name is required.");
-            return;
-        }
-        
-        if (!formData.roleName.trim()) {
-            setError("Role name is required.");
-            return;
-        }
-        
-        if (formData.selectedTechStacks.length === 0) {
-            setError("At least one tech stack must be selected.");
-            return;
-        }
-        
-        // Check if any student has data
+        if (!formData.companyName.trim()) { setError("Company name is required."); return; }
+        if (!formData.roleName.trim()) { setError("Role name is required."); return; }
+        if (formData.selectedTechStacks.length === 0) { setError("At least one tech stack must be selected."); return; }
         const hasStudentData = formData.students.some(s => s.niatId.trim() || s.studentName.trim());
-        if (!hasStudentData) {
-            setError("At least one student must have data.");
-            return;
-        }
+        if (!hasStudentData) { setError("At least one student must have data."); return; }
         
         setActionLoading(true);
         setError('');
         
         try {
-            // Transform the form data to the format expected by the API
             const dataToSave = formData.students
                 .filter(student => student.niatId.trim() || student.studentName.trim())
                 .map(student => ({
@@ -330,13 +302,10 @@ const CompanywiseStudentsProgress = ({ user }) => {
                 }));
             
             if (formMode === 'add') {
-                // Create new entries
                 await internshipsTrackerService.bulkUploadSheetData('companywise-students-progress', dataToSave);
                 setSuccess("Data added successfully!");
             } else {
-                // Update existing entry
                 if (editingItemId) {
-                    // We're only updating the first student in edit mode
                     await internshipsTrackerService.updateSheetRow(
                         'companywise-students-progress', 
                         editingItemId, 
@@ -346,11 +315,9 @@ const CompanywiseStudentsProgress = ({ user }) => {
                 }
             }
             
-            // Refresh data and close modal
             await fetchSavedData();
             setShowAddEditModal(false);
             
-            // Clear success message after a delay
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
             setError('Failed to save data: ' + (err.response?.data?.error || err.message));
@@ -371,7 +338,6 @@ const CompanywiseStudentsProgress = ({ user }) => {
             await fetchSavedData();
             setSuccess("Data deleted successfully!");
             
-            // Clear success message after a delay
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
             setError("Failed to delete row: " + (err.response?.data?.error || err.message));
@@ -381,27 +347,20 @@ const CompanywiseStudentsProgress = ({ user }) => {
         }
     };
     
-    // CSV handlers
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file && file.type === 'text/csv') {
             setCsvFile(file);
             setCsvError('');
             Papa.parse(file, {
-                header: true,
-                skipEmptyLines: true,
+                header: true, skipEmptyLines: true,
                 complete: (results) => {
-                    setCsvHeaders(results.meta.fields || []);
-                    setCsvData(results.data);
+                    setCsvHeaders(results.meta.fields || []); setCsvData(results.data);
                 },
-                error: (err) => {
-                    setCsvError('Failed to parse CSV file: ' + err.message);
-                }
+                error: (err) => setCsvError('Failed to parse CSV file: ' + err.message)
             });
         } else {
-            setCsvFile(null);
-            setCsvData([]);
-            setCsvHeaders([]);
+            setCsvFile(null); setCsvData([]); setCsvHeaders([]);
             setCsvError('Please upload a valid CSV file.');
         }
     };
@@ -409,55 +368,39 @@ const CompanywiseStudentsProgress = ({ user }) => {
     const handleSaveCsvData = async () => {
         if (!csvData.length) return;
         
-        setUploadingCsv(true);
-        setCsvError('');
+        setUploadingCsv(true); setCsvError('');
         
         try {
             await internshipsTrackerService.bulkUploadSheetData('companywise-students-progress', csvData);
             await fetchSavedData();
             setShowUploadModal(false);
             setSuccess("CSV data uploaded successfully!");
-            
-            // Clear success message after a delay
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
             setCsvError('Upload failed: ' + (err.response?.data?.error || err.message));
-        } finally {
-            setUploadingCsv(false);
-        }
+        } finally { setUploadingCsv(false); }
     };
     
-    // Export handlers
     const handleExportCSV = () => {
-        if (tableData.length === 0) {
-            alert("No data to export.");
-            return;
-        }
+        if (tableData.length === 0) { alert("No data to export."); return; }
         
-        // Prepare data for export
         const exportData = tableData.map(item => {
             const row = {
-                "Company Name": item.companyName,
-                "Role Name": item.roleName,
+                "Company Name": item.companyName, "Role Name": item.roleName,
                 "Role Deadline": item.roleDeadline ? new Date(item.roleDeadline).toLocaleDateString() : '',
-                "Offers": item.noOfOffers,
-                "NIAT ID": item.niatId,
-                "Student Name": item.studentName,
+                "Offers": item.noOfOffers, "NIAT ID": item.niatId, "Student Name": item.studentName,
                 "Completion Status": item.completionStatus
             };
             
-            // Add tech stack info
             const techStacks = savedData.find(d => d._id === item._id)?.techAssignments || [];
             techStacks.forEach((tech, i) => {
                 row[`Tech Stack ${i+1}`] = tech.techStackName;
                 row[`Tech Stack ${i+1} Deadline`] = tech.deadline ? new Date(tech.deadline).toLocaleDateString() : '';
                 row[`Tech Stack ${i+1} Progress`] = `${techStackProgressMap.get(tech.techStackName) || 0}%`;
             });
-            
             return row;
         });
         
-        // Generate CSV
         const csv = Papa.unparse(exportData);
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -469,15 +412,11 @@ const CompanywiseStudentsProgress = ({ user }) => {
         document.body.removeChild(link);
     };
     
-    // Data processing for the table
     const finalTableColumns = useMemo(() => {
         const base = [
-            { header: 'Company Name', field: 'companyName' }, 
-            { header: 'Role Name', field: 'roleName' }, 
-            { header: 'Role Deadline', field: 'roleDeadline', type: 'date' }, 
-            { header: 'Offers', field: 'noOfOffers', type: 'number' }, 
-            { header: 'NIAT ID', field: 'niatId' }, 
-            { header: 'Student Name', field: 'studentName' }
+            { header: 'Company Name', field: 'companyName' }, { header: 'Role Name', field: 'roleName' }, 
+            { header: 'Role Deadline', field: 'roleDeadline', type: 'date' }, { header: 'Offers', field: 'noOfOffers', type: 'number' }, 
+            { header: 'NIAT ID', field: 'niatId' }, { header: 'Student Name', field: 'studentName' }
         ];
         
         const end = [{ header: 'Completion', field: 'completionStatus' }];
@@ -503,14 +442,9 @@ const CompanywiseStudentsProgress = ({ user }) => {
             }
             
             const flatItem = {
-                _id: item._id, 
-                companyName: item.companyName, 
-                roleName: item.roleName, 
-                roleDeadline: item.roleDeadline, 
-                noOfOffers: item.noOfOffers, 
-                niatId: item.niatId, 
-                studentName: item.studentName, 
-                completionStatus: status,
+                _id: item._id, companyName: item.companyName, roleName: item.roleName, 
+                roleDeadline: item.roleDeadline, noOfOffers: item.noOfOffers, 
+                niatId: item.niatId, studentName: item.studentName, completionStatus: status,
             };
             
             (item.techAssignments || []).forEach((a, i) => {
@@ -518,25 +452,43 @@ const CompanywiseStudentsProgress = ({ user }) => {
                 flatItem[`techStack${i + 1}Deadline`] = a.deadline;
                 flatItem[`techStack${i + 1}Progress`] = techStackProgressMap.get(a.techStackName) ?? null;
             });
-            
             return flatItem;
         });
     }, [savedData, techStackProgressMap]);
 
-    // Filter and paginate data
+    // --- START: CORRECTED SEARCH LOGIC ---
     const filteredData = useMemo(() => {
         if (!searchTerm.trim()) return tableData;
         
         const lowerSearchTerm = searchTerm.toLowerCase();
         
-        return tableData.filter(item => 
-            (item.companyName && item.companyName.toLowerCase().includes(lowerSearchTerm)) ||
-            (item.roleName && item.roleName.toLowerCase().includes(lowerSearchTerm)) ||
-            (item.niatId && item.niatId.toLowerCase().includes(lowerSearchTerm)) ||
-            (item.studentName && item.studentName.toLowerCase().includes(lowerSearchTerm))
-        );
+        return tableData.filter(item => {
+            // Check fixed fields first for performance
+            const hasMatchInFixedFields =
+                (item.companyName && String(item.companyName).toLowerCase().includes(lowerSearchTerm)) ||
+                (item.roleName && String(item.roleName).toLowerCase().includes(lowerSearchTerm)) ||
+                (item.niatId && String(item.niatId).toLowerCase().includes(lowerSearchTerm)) ||
+                (item.studentName && String(item.studentName).toLowerCase().includes(lowerSearchTerm)) ||
+                (item.completionStatus && String(item.completionStatus).toLowerCase().includes(lowerSearchTerm));
+
+            if (hasMatchInFixedFields) return true;
+
+            // If no match in fixed fields, check the dynamic tech stack names
+            for (const key in item) {
+                // Search in keys that represent a tech stack's name, e.g., 'techStack1Name', 'techStack2Name'
+                if (key.startsWith('techStack') && key.endsWith('Name')) {
+                    const value = item[key];
+                    if (value && String(value).toLowerCase().includes(lowerSearchTerm)) {
+                        return true; // Found a match in a tech stack name
+                    }
+                }
+            }
+
+            return false; // No match found
+        });
     }, [tableData, searchTerm]);
-    
+    // --- END: CORRECTED SEARCH LOGIC ---
+
     const paginatedData = useMemo(() => {
         if (loading) return [];
         
@@ -544,7 +496,6 @@ const CompanywiseStudentsProgress = ({ user }) => {
         return filteredData.slice(startIndex, startIndex + rowsPerPage);
     }, [filteredData, currentPage, rowsPerPage, loading]);
     
-    // Pagination Controls
     const PaginationControls = () => {
         const totalRows = filteredData.length;
         if (totalRows === 0) return null;
@@ -586,31 +537,18 @@ const CompanywiseStudentsProgress = ({ user }) => {
             
             for (let i = startPage; i <= endPage; i++) {
                 pageNumbers.push(
-                    <Button
-                        key={i}
-                        variant={currentPage === i ? 'primary' : 'outline-secondary'}
-                        size="sm"
-                        onClick={() => handlePageChange(i)}
-                        className="mx-1"
-                        style={{minWidth: '38px'}}
-                    >
+                    <Button key={i} variant={currentPage === i ? 'primary' : 'outline-secondary'} size="sm" onClick={() => handlePageChange(i)} className="mx-1" style={{minWidth: '38px'}} >
                         {i}
                     </Button>
                 );
             }
-            
             return pageNumbers;
         };
     
         return (
             <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
                 <div className="d-flex align-items-center gap-2">
-                    <Form.Select
-                        size="sm"
-                        value={rowsPerPage}
-                        onChange={handleRowsPerPageChange}
-                        style={{width: '75px'}}
-                    >
+                    <Form.Select size="sm" value={rowsPerPage} onChange={handleRowsPerPageChange} style={{width: '75px'}} >
                         <option value="5">5</option>
                         <option value="10">10</option>
                         <option value="25">25</option>
@@ -622,25 +560,12 @@ const CompanywiseStudentsProgress = ({ user }) => {
                     <span className="text-muted small">
                         {startIndex + 1}-{endIndex} of {totalRows}
                     </span>
-                    
                     <div className="btn-group" role="group">
-                        <Button
-                            variant="outline-secondary"
-                            size="sm"
-                            onClick={() => handlePageChange(currentPage - 1)}
-                            disabled={currentPage === 1}
-                        >
+                        <Button variant="outline-secondary" size="sm" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
                             <i className="fas fa-chevron-left"></i>
                         </Button>
-                        
                         {renderPageNumbers()}
-                        
-                        <Button
-                            variant="outline-secondary"
-                            size="sm"
-                            onClick={() => handlePageChange(currentPage + 1)}
-                            disabled={currentPage === totalPages}
-                        >
+                        <Button variant="outline-secondary" size="sm" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>
                             <i className="fas fa-chevron-right"></i>
                         </Button>
                     </div>
@@ -651,62 +576,31 @@ const CompanywiseStudentsProgress = ({ user }) => {
 
     return (
         <div className="py-3">
-            {error && (
-                <Alert variant="danger" onClose={() => setError('')} dismissible>
-                    {error}
-                </Alert>
-            )}
-            
-            {success && (
-                <Alert variant="success" onClose={() => setSuccess('')} dismissible>
-                    {success}
-                </Alert>
-            )}
+            {error && <Alert variant="danger" onClose={() => setError('')} dismissible>{error}</Alert>}
+            {success && <Alert variant="success" onClose={() => setSuccess('')} dismissible>{success}</Alert>}
             
             <Card className="mb-4 shadow-sm">
                 <Card.Header className="bg-light">
                     <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <h5 className="mb-0 fs-6 text-muted text-uppercase">Consolidated Progress Overview</h5>
                         <div className="d-flex gap-2">
-                            <div className="input-group input-group-sm" style={{ width: '250px' }}>
+                            <InputGroup size="sm" style={{ width: '250px' }}>
                                 <Form.Control
                                     placeholder="Search records..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
-                                {searchTerm && (
-                                    <Button 
-                                        variant="outline-secondary"
-                                        onClick={() => setSearchTerm('')}
-                                    >
-                                        <i className="fas fa-times"></i>
-                                    </Button>
-                                )}
-                            </div>
-                            
-                            <Button 
-                                variant="outline-primary" 
-                                size="sm"
-                                onClick={handleExportCSV}
-                            >
+                                {searchTerm && <Button variant="outline-secondary" onClick={() => setSearchTerm('')}> <i className="fas fa-times"></i> </Button>}
+                            </InputGroup>
+                            <Button variant="outline-primary" size="sm" onClick={handleExportCSV}>
                                 <i className="fas fa-download me-1"></i> Export
                             </Button>
-                            
                             {isAdmin && (
                                 <>
-                                    <Button 
-                                        variant="outline-success" 
-                                        size="sm"
-                                        onClick={handleOpenUploadModal}
-                                    >
+                                    <Button variant="outline-success" size="sm" onClick={handleOpenUploadModal}>
                                         <i className="fas fa-file-csv me-1"></i> Upload CSV
                                     </Button>
-                                    
-                                    <Button 
-                                        variant="primary" 
-                                        size="sm"
-                                        onClick={handleOpenAddModal}
-                                    >
+                                    <Button variant="primary" size="sm" onClick={handleOpenAddModal}>
                                         <i className="fas fa-plus me-1"></i> Add
                                     </Button>
                                 </>
@@ -717,397 +611,96 @@ const CompanywiseStudentsProgress = ({ user }) => {
                 
                 <Card.Body className="p-0">
                     {loading ? (
-                        <div className="text-center py-5">
-                            <Spinner animation="border" />
-                            <p className="mt-2">Loading data...</p>
-                        </div>
+                        <div className="text-center py-5"><Spinner animation="border" /><p className="mt-2">Loading data...</p></div>
                     ) : filteredData.length === 0 ? (
-                        <div className="text-center py-5">
-                            <p className="text-muted">No records found.</p>
-                        </div>
+                        <div className="text-center py-5"><p className="text-muted">No records found.</p></div>
                     ) : (
                         <div className="table-responsive-scroll">
-                             {/* =======================
-                                 ===== NEW FIX =========
-                                 Correct `onSave` prop.
-                                 ======================= */}
                             <EditableTable 
-                                columns={finalTableColumns} 
-                                data={paginatedData} 
-                                onSave={isAdmin ? handleSaveTableRow : undefined}
-                                onDelete={isAdmin ? handleOpenDeleteModal : undefined} 
-                                isLoading={actionLoading} 
-                                allowAdd={false}
+                                columns={finalTableColumns} data={paginatedData} onSave={isAdmin ? handleSaveTableRow : undefined}
+                                onDelete={isAdmin ? handleOpenDeleteModal : undefined} isLoading={actionLoading} allowAdd={false}
                             />
                         </div>
                     )}
                 </Card.Body>
                 
                 <Card.Footer className="bg-light border-top">
-                    <PaginationControls />
+                    <PaginationControls totalRows={filteredData.length} />
                 </Card.Footer>
             </Card>
 
-            {/* Add/Edit Modal */}
-            <Modal 
-                show={showAddEditModal} 
-                onHide={() => setShowAddEditModal(false)} 
-                size="lg" 
-                centered
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>
-                        {formMode === 'add' ? 'Add New Student Progress' : 'Edit Student Progress'}
-                    </Modal.Title>
-                </Modal.Header>
-                
+            <Modal show={showAddEditModal} onHide={() => setShowAddEditModal(false)} size="lg" centered>
+                <Modal.Header closeButton><Modal.Title>{formMode === 'add' ? 'Add New Student Progress' : 'Edit Student Progress'}</Modal.Title></Modal.Header>
                 <Modal.Body>
                     <Form>
                         <Row className="mb-3">
-                            <Col md={6}>
-                                <Form.Group>
-                                    <Form.Label>Company Name</Form.Label>
-                                    <Form.Control 
-                                        type="text" 
-                                        value={formData.companyName} 
-                                        onChange={(e) => handleFormInputChange('companyName', e.target.value)} 
-                                        placeholder="Enter company name"
-                                        required
-                                    />
-                                </Form.Group>
-                            </Col>
-                            
-                            <Col md={6}>
-                                <Form.Group>
-                                    <Form.Label>Role Name</Form.Label>
-                                    <Form.Control 
-                                        type="text" 
-                                        value={formData.roleName} 
-                                        onChange={(e) => handleFormInputChange('roleName', e.target.value)} 
-                                        placeholder="e.g., Frontend Developer"
-                                        required
-                                    />
-                                </Form.Group>
-                            </Col>
+                            <Col md={6}><Form.Group><Form.Label>Company Name</Form.Label><Form.Control type="text" value={formData.companyName} onChange={(e) => handleFormInputChange('companyName', e.target.value)} placeholder="Enter company name" required /></Form.Group></Col>
+                            <Col md={6}><Form.Group><Form.Label>Role Name</Form.Label><Form.Control type="text" value={formData.roleName} onChange={(e) => handleFormInputChange('roleName', e.target.value)} placeholder="e.g., Frontend Developer" required /></Form.Group></Col>
                         </Row>
-                        
                         <Row className="mb-3">
-                            <Col md={4}>
-                                <Form.Group>
-                                    <Form.Label>No of Offers</Form.Label>
-                                    <Form.Control 
-                                        type="number" 
-                                        value={formData.noOfOffers} 
-                                        onChange={(e) => handleFormInputChange('noOfOffers', Number(e.target.value))} 
-                                        min="1"
-                                    />
-                                </Form.Group>
-                            </Col>
-                            
-                            <Col md={4}>
-                                <Form.Group>
-                                    <Form.Label>Role Deadline</Form.Label>
-                                    <DatePicker 
-                                        selected={formData.roleDeadline ? new Date(formData.roleDeadline) : null} 
-                                        onChange={(date) => handleFormInputChange('roleDeadline', date)} 
-                                        className="form-control" 
-                                        placeholderText="Select Deadline" 
-                                        showMonthDropdown 
-                                        showYearDropdown 
-                                        dropdownMode="select"
-                                    />
-                                </Form.Group>
-                            </Col>
-                            
-                            <Col md={4}>
-                                <Form.Group>
-                                    <Form.Label>Techstack Names</Form.Label>
-                                    <TechStackDropdown 
-                                        techStacks={techStackOptions} 
-                                        selectedTechStacks={formData.selectedTechStacks} 
-                                        onSelect={handleTechStackSelection} 
-                                        loading={loading} 
-                                        isFormField={true} 
-                                    />
-                                </Form.Group>
-                            </Col>
+                            <Col md={4}><Form.Group><Form.Label>No of Offers</Form.Label><Form.Control type="number" value={formData.noOfOffers} onChange={(e) => handleFormInputChange('noOfOffers', Number(e.target.value))} min="1" /></Form.Group></Col>
+                            <Col md={4}><Form.Group><Form.Label>Role Deadline</Form.Label><DatePicker selected={formData.roleDeadline ? new Date(formData.roleDeadline) : null} onChange={(date) => handleFormInputChange('roleDeadline', date)} className="form-control" placeholderText="Select Deadline" showMonthDropdown showYearDropdown dropdownMode="select" /></Form.Group></Col>
+                            <Col md={4}><Form.Group><Form.Label>Techstack Names</Form.Label><TechStackDropdown techStacks={techStackOptions} selectedTechStacks={formData.selectedTechStacks} onSelect={handleTechStackSelection} loading={loading} isFormField={true} /></Form.Group></Col>
                         </Row>
-                        
                         <div className="border-top pt-3 mt-4">
                             <div className="d-flex justify-content-between align-items-center mb-2">
                                 <h6 className="mb-0">Students for "{formData.roleName || 'Role'}"</h6>
-                                
-                                {formMode === 'add' && (
-                                    <Button 
-                                        variant="success" 
-                                        size="sm" 
-                                        onClick={handleAddStudent}
-                                    >
-                                        <i className="fas fa-user-plus me-2"></i>Add Student
-                                    </Button>
-                                )}
+                                {formMode === 'add' && <Button variant="success" size="sm" onClick={handleAddStudent}> <i className="fas fa-user-plus me-2"></i>Add Student </Button>}
                             </div>
-                            
                             {formData.selectedTechStacks.length > 0 ? (
                                 <Table striped bordered responsive size="sm" className="align-middle">
-                                    <thead>
-                                        <tr>
-                                            <th style={{width: '15%'}}>NIAT ID</th>
-                                            <th style={{width: '25%'}}>Student Name</th>
-                                            {formData.selectedTechStacks.map(tsName => (
-                                                <th key={tsName}>{tsName} Deadline</th>
-                                            ))}
-                                            {formMode === 'add' && <th style={{ width: '50px' }}></th>}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {formData.students.map((student, sIndex) => (
-                                            <tr key={student.id}>
-                                                <td>
-                                                    <Form.Control
-                                                        size="sm"
-                                                        type="text"
-                                                        value={student.niatId}
-                                                        onChange={(e) => handleStudentChange(student.id, 'niatId', e.target.value)}
-                                                        onPaste={(e) => handleStudentPaste(e, sIndex)}
-                                                    />
-                                                </td>
-                                                <td>
-                                                    <Form.Control
-                                                        size="sm"
-                                                        type="text"
-                                                        value={student.studentName}
-                                                        onChange={(e) => handleStudentChange(student.id, 'studentName', e.target.value)}
-                                                    />
-                                                </td>
-                                                {formData.selectedTechStacks.map(tsName => {
-                                                    const assignment = student.techAssignments.find(a => a.techStackName === tsName);
-                                                    return (
-                                                        <td key={tsName}>
-                                                            <DatePicker
-                                                                selected={assignment?.deadline ? new Date(assignment.deadline) : null}
-                                                                onChange={(date) => handleStudentTechDeadlineChange(student.id, tsName, date)}
-                                                                className="form-control form-control-sm"
-                                                                placeholderText="Set Date"
-                                                                showMonthDropdown
-                                                                showYearDropdown
-                                                                dropdownMode="select"
-                                                            />
-                                                        </td>
-                                                    );
-                                                })}
-                                                {formMode === 'add' && (
-                                                    <td className="text-center">
-                                                        <Button
-                                                            variant="outline-danger"
-                                                            size="sm"
-                                                            onClick={() => handleRemoveStudent(student.id)}
-                                                            disabled={formData.students.length <= 1}
-                                                            title="Remove Student"
-                                                        >
-                                                            <i className="fas fa-trash"></i>
-                                                        </Button>
-                                                    </td>
-                                                )}
-                                            </tr>
-                                        ))}
-                                    </tbody>
+                                    <thead><tr>
+                                        <th style={{width: '15%'}}>NIAT ID</th><th style={{width: '25%'}}>Student Name</th>
+                                        {formData.selectedTechStacks.map(tsName => <th key={tsName}>{tsName} Deadline</th>)}
+                                        {formMode === 'add' && <th style={{ width: '50px' }}></th>}
+                                    </tr></thead>
+                                    <tbody>{formData.students.map((student, sIndex) => (<tr key={student.id}>
+                                        <td><Form.Control size="sm" type="text" value={student.niatId} onChange={(e) => handleStudentChange(student.id, 'niatId', e.target.value)} onPaste={(e) => handleStudentPaste(e, sIndex)}/></td>
+                                        <td><Form.Control size="sm" type="text" value={student.studentName} onChange={(e) => handleStudentChange(student.id, 'studentName', e.target.value)} /></td>
+                                        {formData.selectedTechStacks.map(tsName => {
+                                            const assignment = student.techAssignments.find(a => a.techStackName === tsName);
+                                            return <td key={tsName}><DatePicker selected={assignment?.deadline ? new Date(assignment.deadline) : null} onChange={(date) => handleStudentTechDeadlineChange(student.id, tsName, date)} className="form-control form-control-sm" placeholderText="Set Date" showMonthDropdown showYearDropdown dropdownMode="select"/></td>
+                                        })}
+                                        {formMode === 'add' && <td className="text-center"><Button variant="outline-danger" size="sm" onClick={() => handleRemoveStudent(student.id)} disabled={formData.students.length <= 1} title="Remove Student"> <i className="fas fa-trash"></i> </Button></td>}
+                                    </tr>))}</tbody>
                                 </Table>
-                            ) : (
-                                <div className="text-muted text-center py-3">
-                                    Please select Tech Stacks to assign deadlines to students.
-                                </div>
-                            )}
+                            ) : (<div className="text-muted text-center py-3">Please select Tech Stacks to assign deadlines to students.</div>)}
                         </div>
                     </Form>
                 </Modal.Body>
-                
                 <Modal.Footer>
-                    <Button 
-                        variant="secondary" 
-                        onClick={() => setShowAddEditModal(false)}
-                        disabled={actionLoading}
-                    >
-                        Cancel
-                    </Button>
-                    
-                    <Button 
-                        variant="primary" 
-                        onClick={handleSaveForm}
-                        disabled={actionLoading}
-                    >
-                        {actionLoading ? (
-                            <>
-                                <Spinner as="span" animation="border" size="sm" className="me-2" />
-                                Saving...
-                            </>
-                        ) : (
-                            formMode === 'add' ? 'Add Student Progress' : 'Update Student Progress'
-                        )}
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-
-            {/* CSV Upload Modal */}
-            <Modal 
-                show={showUploadModal} 
-                onHide={() => setShowUploadModal(false)} 
-                size="lg" 
-                centered
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>
-                        <i className="fas fa-file-csv me-2"></i>
-                        Upload Student Progress Data
-                    </Modal.Title>
-                </Modal.Header>
-                
-                <Modal.Body>
-                    {csvError && (
-                        <Alert variant="danger" className="py-2 small">
-                            {csvError}
-                        </Alert>
-                    )}
-                    
-                    <Form.Group controlId="formFile" className="mb-3">
-                        <Form.Label>Select CSV file</Form.Label>
-                        <Form.Text className="d-block mb-2 text-muted">
-                            Required columns: `Company Name`, `Role Name`, `NIAT ID`, `Student Name`, `Tech Stack Name`. Others optional.
-                        </Form.Text>
-                        <Form.Control 
-                            type="file" 
-                            accept=".csv" 
-                            onChange={handleFileChange} 
-                            ref={fileInputRef} 
-                        />
-                    </Form.Group>
-                    
-                    {csvData.length > 0 && (
-                        <div>
-                            <h6>Preview Data ({csvData.length} rows)</h6>
-                            <div className="table-responsive" style={{ maxHeight: '40vh', overflowY: 'auto' }}>
-                                <Table striped bordered size="sm">
-                                    <thead>
-                                        <tr>
-                                            {csvHeaders.map((header, index) => (
-                                                <th key={index}>{header}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {csvData.map((row, rowIndex) => (
-                                            <tr key={rowIndex}>
-                                                {csvHeaders.map((header, colIndex) => (
-                                                    <td key={colIndex}>{row[header]}</td>
-                                                ))}
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </Table>
-                            </div>
-                        </div>
-                    )}
-                </Modal.Body>
-                
-                <Modal.Footer>
-                    <Button 
-                        variant="secondary" 
-                        onClick={() => setShowUploadModal(false)}
-                    >
-                        Cancel
-                    </Button>
-                    
-                    <Button 
-                        variant="primary" 
-                        onClick={handleSaveCsvData}
-                        disabled={uploadingCsv || !csvData.length}
-                    >
-                        {uploadingCsv ? (
-                            <>
-                                <Spinner as="span" animation="border" size="sm" className="me-2" />
-                                Uploading...
-                            </>
-                        ) : (
-                            'Upload Data'
-                        )}
-                    </Button>
+                    <Button variant="secondary" onClick={() => setShowAddEditModal(false)} disabled={actionLoading}>Cancel</Button>
+                    <Button variant="primary" onClick={handleSaveForm} disabled={actionLoading}> {actionLoading ? <><Spinner as="span" animation="border" size="sm" className="me-2" /> Saving...</> : (formMode === 'add' ? 'Add Student Progress' : 'Update Student Progress')} </Button>
                 </Modal.Footer>
             </Modal>
             
-            {/* Delete Confirmation Modal */}
-            <Modal 
-                show={showDeleteModal} 
-                onHide={() => setShowDeleteModal(false)} 
-                centered
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Confirm Deletion</Modal.Title>
-                </Modal.Header>
-                
+            <Modal show={showUploadModal} onHide={() => setShowUploadModal(false)} size="lg" centered>
+                <Modal.Header closeButton><Modal.Title><i className="fas fa-file-csv me-2"></i>Upload Student Progress Data</Modal.Title></Modal.Header>
                 <Modal.Body>
-                    Are you sure you want to delete this student progress record? This action cannot be undone.
+                    {csvError && <Alert variant="danger" className="py-2 small">{csvError}</Alert>}
+                    <Form.Group controlId="formFile" className="mb-3"><Form.Label>Select CSV file</Form.Label><Form.Text className="d-block mb-2 text-muted">Required columns: `Company Name`, `Role Name`, `NIAT ID`, `Student Name`, `Tech Stack Name`. Others optional.</Form.Text><Form.Control type="file" accept=".csv" onChange={handleFileChange} ref={fileInputRef} /></Form.Group>
+                    {csvData.length > 0 && <div><h6>Preview Data ({csvData.length} rows)</h6><div className="table-responsive" style={{ maxHeight: '40vh', overflowY: 'auto' }}><Table striped bordered size="sm"><thead><tr>{csvHeaders.map((header, index) => <th key={index}>{header}</th>)}</tr></thead><tbody>{csvData.map((row, rowIndex) => <tr key={rowIndex}>{csvHeaders.map((header, colIndex) => <td key={colIndex}>{row[header]}</td>)}</tr>)}</tbody></Table></div></div>}
                 </Modal.Body>
                 <Modal.Footer>
-                    <Button 
-                        variant="secondary" 
-                        onClick={() => setShowDeleteModal(false)}
-                    >
-                        Cancel
-                    </Button>
-                    
-                    <Button 
-                        variant="danger" 
-                        onClick={handleConfirmDelete}
-                        disabled={actionLoading}
-                    >
-                        {actionLoading ? (
-                            <Spinner as="span" animation="border" size="sm" />
-                        ) : (
-                            'Delete'
-                        )}
-                    </Button>
+                    <Button variant="secondary" onClick={() => setShowUploadModal(false)}>Cancel</Button>
+                    <Button variant="primary" onClick={handleSaveCsvData} disabled={uploadingCsv || !csvData.length}> {uploadingCsv ? <><Spinner as="span" animation="border" size="sm" className="me-2" /> Uploading...</> : 'Upload Data'} </Button>
                 </Modal.Footer>
             </Modal>
             
-            {/* CSS Styles */}
+            <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
+                <Modal.Header closeButton><Modal.Title>Confirm Deletion</Modal.Title></Modal.Header>
+                <Modal.Body>Are you sure you want to delete this student progress record? This action cannot be undone.</Modal.Body>
+                <Modal.Footer><Button variant="secondary" onClick={() => setShowDeleteModal(false)}>Cancel</Button><Button variant="danger" onClick={handleConfirmDelete} disabled={actionLoading}>{actionLoading ? <Spinner as="span" animation="border" size="sm" /> : 'Delete'}</Button></Modal.Footer>
+            </Modal>
+            
             <style>{`
-                .table-responsive-scroll { 
-                    max-height: 70vh; 
-                    overflow-y: auto; 
-                }
-                
-                .table-responsive-scroll thead th { 
-                    position: sticky; 
-                    top: 0; 
-                    background-color: #f8f9fa;
-                    z-index: 1;
-                }
-                
-                /* Progress bar styling */
-                .progress-bar-custom {
-                    height: 20px;
-                    border-radius: 4px;
-                }
-                
-                /* Date picker fixes */
-                .react-datepicker-wrapper {
-                    display: block;
-                    width: 100%;
-                }
-
-                /* Updated UI styles */
-                .table {
-                    font-size: 0.85rem;
-                }
-                .table th {
-                    font-weight: 600;
-                    text-transform: uppercase;
-                    font-size: 0.75rem;
-                    letter-spacing: 0.5px;
-                }
-                .card-header h5 {
-                    font-weight: 600;
-                }
+                .table-responsive-scroll { max-height: 70vh; overflow-y: auto; }
+                .table-responsive-scroll thead th { position: sticky; top: 0; background-color: #f8f9fa; z-index: 1; }
+                .progress-bar-custom { height: 20px; border-radius: 4px; }
+                .react-datepicker-wrapper { display: block; width: 100%; }
+                .table { font-size: 0.85rem; }
+                .table th { font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; }
+                .card-header h5 { font-weight: 600; }
             `}</style>
         </div>
     );
