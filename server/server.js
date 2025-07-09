@@ -20,7 +20,9 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import activityLogRoutes from './routes/activityLogRoutes.js';
 import internshipsTrackerRoutes from './routes/internshipsTrackerRoutes.js';
 import criticalPointsRoutes from './routes/criticalPointsRoutes.js';
-import postInternshipRoutes from './routes/postInternshipRoutes.js'; // --- NEW IMPORT ---
+import postInternshipRoutes from './routes/postInternshipRoutes.js'; 
+import studentsTrackerRoutes from './routes/studentsTrackerRoutes.js';
+import companyInteractionTrackingRoutes from './routes/companyInteractionTrackingRoutes.js'; // --- NEW IMPORT ---
 
 // Import middleware
 import errorHandler from './middleware/errorHandler.js';
@@ -103,7 +105,10 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/activitylogs', activityLogRoutes);
 app.use('/api/internships', internshipsTrackerRoutes);
 app.use('/api/critical-points', criticalPointsRoutes);
-app.use('/api/post-internships', postInternshipRoutes); // --- ADD NEW ROUTE ---
+app.use('/api/post-internships', postInternshipRoutes);
+app.use('/api/students-tracker', studentsTrackerRoutes); 
+app.use('/api/company-interactions', companyInteractionTrackingRoutes); // --- ADD NEW ROUTE ---
+
 
 // Root Route
 app.get('/', (req, res) => {
