@@ -1,6 +1,7 @@
 // server/routes/criticalPointsRoutes.js
 import express from 'express';
-import { interactionsController, companyStatusController } from '../controllers/criticalPointsController.js';
+// --- MODIFICATION: Removed companyStatusController ---
+import { interactionsController } from '../controllers/criticalPointsController.js';
 import { protect, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -26,6 +27,8 @@ const authorizeCriticalPoints = (req, res, next) => {
 router.use(protect);
 router.use(authorizeCriticalPoints);
 
+// --- MODIFICATION: All /company-status routes have been removed ---
+
 // Interaction Feedback Main Routes
 router.route('/interactions').get(interactionsController.getAll).post(interactionsController.create);
 router.route('/interactions/:id').put(interactionsController.update).delete(interactionsController.delete);
@@ -35,13 +38,5 @@ router.post('/interactions/bulk', interactionsController.bulkCreate);
 router.post('/interactions/:id/sub', interactionsController.addInteraction);
 router.put('/interactions/:id/sub/:subId', interactionsController.updateSubInteraction);
 router.delete('/interactions/:id/sub/:subId', interactionsController.deleteSubInteraction);
-
-// Company Status Main Routes
-router.route('/company-status').get(companyStatusController.getAll).post(companyStatusController.create);
-router.route('/company-status/:id').put(companyStatusController.update).delete(companyStatusController.delete);
-router.post('/company-status/bulk', companyStatusController.bulkCreate);
-
-// --- NEW ROUTE for updating student's hiring status ---
-router.put('/company-status/:companyId/students/:studentId/status', companyStatusController.updateStudentOverallStatus);
 
 export default router;
