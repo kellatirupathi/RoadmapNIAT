@@ -83,14 +83,37 @@ const Sidebar = ({ isOpen, toggleSidebar, setPageLoading }) => {
         { to: "/", icon: "M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z", label: "Dashboard" }
     ];
 
+    // --- START MODIFICATION: Updated access logic for Internships/Students Tracker ---
+    const canAccessStudentsTracker = 
+      user.role === 'admin' || 
+      user.role === 'manager' ||
+      ((user.role === 'instructor' || user.role === 'crm') && user.canAccessStudentsTracker);
+    
+    if (canAccessStudentsTracker) {
+        navLinks.push({ to: "/students-tracker", icon: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-8.5 12.5H7v-1h3.5v1zm0-3H7v-1h3.5v1zm0-3H7v-1h3.5v1zm4.5 6H12v-1h3.5v1zm0-3H12v-1h3.5v1zm0-3H12v-1h3.5v1z", label: "Students Tracker" });
+    }
+    // --- END MODIFICATION ---
+
+    // The logic for legacy "Internships Tracker" page remains
     if (user.role === 'admin' || user.role === 'manager') {
       navLinks.push({ to: "/internships-tracker", icon: "M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-1 9h-2v4h2v-4zm-2-2h2V5h-2v4z", label: "Internships Tracker" });
     }
-
+    
     if (user.role === 'admin' || user.role === 'manager' || (user.role === 'instructor' && user.canAccessCriticalPoints) || user.role === 'crm') {
       navLinks.push({ to: "/critical-points", icon: "M20.285 2l-2.857 2.857-1.428-1.428-1.428 1.428-2.143-2.143L9.571 5.571l-1.428-1.428L5.286 7l-2.143 2.143 2.857 2.857-1.428 1.428 1.428 1.428 2.143-2.143L11.571 16l1.428 1.428-2.857 2.857 2.143 2.143L16 19.571l1.428 1.428 2.857-2.857L23.143 16l-2.858-2.857zM11.857 9.143L8 5.286l-2.143 2.143 3.857 3.857-2.857 2.857 1.428 1.428 3.857-3.857L16 16l-1.428-1.428L10.714 10.714l1.143-1.571z", label: "Critical Points" });
     }
-
+    
+    // --- START MODIFICATION: Updated access logic for Overall HUB ---
+    const canAccessOverallHub = 
+      user.role === 'admin' || 
+      user.role === 'manager' ||
+      ((user.role === 'instructor' || user.role === 'crm') && user.canAccessOverallHub);
+    
+    if (canAccessOverallHub) {
+        navLinks.push({ to: "/overall-hub", icon: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.25 12.25H11v-4.5h2.25v4.5zm-3.5 0H7.5v-6.75h2.25v6.75zM17 14.25h-2.25V9H17v5.25z", label: "Overall HUB" });
+    }
+    // --- END MODIFICATION ---
+    
     const canAccessPostInternships = 
       user.role === 'admin' || 
       user.role === 'manager' || 
@@ -195,7 +218,7 @@ const Sidebar = ({ isOpen, toggleSidebar, setPageLoading }) => {
             </button>
           </div>
           {(isExpanded || window.innerWidth < 1024) && (
-            <div className="px-6 py-5 border-t border-gray-800 bg-gray-800/50"><div className="flex items-center space-x-3"><div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold text-lg shadow-inner flex-shrink-0">{user?.firstName ? user.firstName.charAt(0).toUpperCase() : user?.username ? user.username.charAt(0).toUpperCase() : 'U'}</div><div className="text-sm overflow-hidden"><div className="font-semibold text-white truncate">{user?.displayName || user?.username}</div><div className="text-xs text-gray-400 truncate">{user?.role}</div></div></div></div>
+            <div className="px-6 py-2 border-t border-gray-800 bg-gray-800/50"><div className="flex items-center space-x-3"><div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold text-lg shadow-inner flex-shrink-0">{user?.firstName ? user.firstName.charAt(0).toUpperCase() : user?.username ? user.username.charAt(0).toUpperCase() : 'U'}</div><div className="text-sm overflow-hidden"><div className="font-semibold text-white truncate">{user?.displayName || user?.username}</div><div className="text-xs text-gray-400 truncate">{user?.role}</div></div></div></div>
           )}
           {isCollapsed && !isHovered && window.innerWidth >= 1024 && (
             <div className="px-2 py-3 border-t border-gray-800 bg-gray-800/50 flex justify-center"><div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white font-semibold text-lg shadow-inner cursor-pointer" title={`${user?.displayName || user?.username} (${user?.role})`}>{user?.firstName ? user.firstName.charAt(0).toUpperCase() : user?.username ? user.username.charAt(0).toUpperCase() : 'U'}</div></div>
