@@ -49,7 +49,11 @@ export const getUserById = async (req, res) => {
 // Create a new user (admin only)
 export const createUser = async (req, res) => {
   try {
-    const { username, email, password, firstName, lastName, role, assignedTechStacks, canManageRoadmaps, techStackPermission, canAccessCriticalPoints, canAccessPostInternships } = req.body;
+    const { 
+      username, email, password, firstName, lastName, role, 
+      assignedTechStacks, canManageRoadmaps, techStackPermission, canAccessCriticalPoints, 
+      canAccessPostInternships, canAccessStudentsTracker, canAccessOverallHub
+    } = req.body;
     
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -60,23 +64,24 @@ export const createUser = async (req, res) => {
     }
     
     const userData = {
-      username,
-      email,
-      password,
-      firstName,
-      lastName,
-      role
+      username, email, password, firstName, lastName, role
     };
 
+    // --- START MODIFICATION: Add CRM to the conditional permission logic ---
+    if (role === 'instructor' || role === 'crm') {
+      if (canAccessStudentsTracker !== undefined) userData.canAccessStudentsTracker = canAccessStudentsTracker;
+      if (canAccessOverallHub !== undefined) userData.canAccessOverallHub = canAccessOverallHub;
+    }
+
+    // Instructor-specific permissions
     if (role === 'instructor') {
       if (assignedTechStacks) userData.assignedTechStacks = assignedTechStacks;
       if (canManageRoadmaps !== undefined) userData.canManageRoadmaps = canManageRoadmaps;
       if (techStackPermission) userData.techStackPermission = techStackPermission;
       if (canAccessCriticalPoints !== undefined) userData.canAccessCriticalPoints = canAccessCriticalPoints;
-      // --- START NEW FIELD ---
       if (canAccessPostInternships !== undefined) userData.canAccessPostInternships = canAccessPostInternships;
-      // --- END NEW FIELD ---
     }
+    // --- END MODIFICATION ---
     
     const user = await User.create(userData);
     
@@ -123,7 +128,11 @@ export const createUser = async (req, res) => {
 // Update user (admin only)
 export const updateUser = async (req, res) => {
   try {
-    const { username, email, firstName, lastName, role, isActive, assignedTechStacks, canManageRoadmaps, techStackPermission, canAccessCriticalPoints, canAccessPostInternships } = req.body;
+    const { 
+      username, email, firstName, lastName, role, isActive, assignedTechStacks, 
+      canManageRoadmaps, techStackPermission, canAccessCriticalPoints, canAccessPostInternships,
+      canAccessStudentsTracker, canAccessOverallHub
+    } = req.body;
     
     const updateData = {};
     if (username !== undefined) updateData.username = username;
@@ -132,24 +141,32 @@ export const updateUser = async (req, res) => {
     if (lastName !== undefined) updateData.lastName = lastName;
     if (role !== undefined) updateData.role = role;
     if (isActive !== undefined) updateData.isActive = isActive;
-    
+
+    // --- START MODIFICATION: Separate shared and role-specific permissions ---
+    // Page access for both Instructor and CRM
+    if (role === 'instructor' || role === 'crm') {
+        if (canAccessStudentsTracker !== undefined) updateData.canAccessStudentsTracker = Boolean(canAccessStudentsTracker);
+        if (canAccessOverallHub !== undefined) updateData.canAccessOverallHub = Boolean(canAccessOverallHub);
+    } else {
+        updateData.canAccessStudentsTracker = false;
+        updateData.canAccessOverallHub = false;
+    }
+
+    // Instructor-only permissions
     if (role === 'instructor') {
       if (assignedTechStacks !== undefined) updateData.assignedTechStacks = assignedTechStacks;
       if (canManageRoadmaps !== undefined) updateData.canManageRoadmaps = Boolean(canManageRoadmaps);
       if (techStackPermission !== undefined) updateData.techStackPermission = techStackPermission;
       if (canAccessCriticalPoints !== undefined) updateData.canAccessCriticalPoints = Boolean(canAccessCriticalPoints);
-      // --- START NEW FIELD ---
       if (canAccessPostInternships !== undefined) updateData.canAccessPostInternships = Boolean(canAccessPostInternships);
-      // --- END NEW FIELD ---
     } else {
       updateData.assignedTechStacks = [];
       updateData.canManageRoadmaps = false;
       updateData.techStackPermission = 'none';
       updateData.canAccessCriticalPoints = false;
-      // --- START NEW FIELD ---
       updateData.canAccessPostInternships = false;
-      // --- END NEW FIELD ---
     }
+    // --- END MODIFICATION ---
     
     const user = await User.findByIdAndUpdate( req.params.id, updateData, { new: true, runValidators: true } ).select('-password').populate('assignedTechStacks', 'name');
     
