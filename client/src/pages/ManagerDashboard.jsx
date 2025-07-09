@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 import statsService from '../services/statsService';
 import userService from '../services/userService';
-import { companyStatusService } from '../services/criticalPointsService.js';
+// --- MODIFICATION: Removed the import for 'companyStatusService' as it no longer exists. ---
 import InstructorProgressTable from '../components/InstructorProgress/InstructorProgressTable';
 
 // Import Chart.js components
@@ -33,7 +33,7 @@ ChartJS.register(
 const ManagerDashboard = ({ setPageLoading }) => {
   const { user } = useAuth();
   const [stats, setStats] = useState(null); 
-  const [companyStatusData, setCompanyStatusData] = useState([]); 
+  // --- MODIFICATION: Removed the 'companyStatusData' state. ---
   const [loading,setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [techStackProgress, setTechStackProgress] = useState([]); 
@@ -49,8 +49,6 @@ const ManagerDashboard = ({ setPageLoading }) => {
   const [techStackStatusModalData, setTechStackStatusModalData] = useState([]);
   const [loadingTechStackStatusModal, setLoadingTechStackStatusModal] = useState(false);
 
-  const [progressChartView, setProgressChartView] = useState('items'); 
-
 
   const dashboardDisplayName = user?.firstName ? `${user.firstName}'s` : user?.username ? `${user.username}'s` : "Manager";
 
@@ -61,18 +59,16 @@ const ManagerDashboard = ({ setPageLoading }) => {
         setError(null);
         if (setPageLoading) setPageLoading(true);
         
-        const [dashboardResponse, companyStatusResponse, timelineResponse, usersResponse] = await Promise.all([
+        // --- MODIFICATION: Removed 'companyStatusResponse' and its API call. ---
+        const [dashboardResponse, timelineResponse, usersResponse] = await Promise.all([
           statsService.getDashboardSummary(),
-          companyStatusService.getAll(),
           statsService.getTimelineStats(),
           userService.getUsers() 
         ]);
         
         setStats(dashboardResponse); 
         
-        if (companyStatusResponse && companyStatusResponse.data) {
-          setCompanyStatusData(companyStatusResponse.data);
-        }
+        // --- MODIFICATION: Removed the logic to set 'companyStatusData'. ---
 
         if (timelineResponse && timelineResponse.techStackProgress) {
           setTechStackProgress(timelineResponse.techStackProgress);
@@ -93,30 +89,7 @@ const ManagerDashboard = ({ setPageLoading }) => {
     fetchData();
   }, [setPageLoading]);
   
-  const processedCompanyStatus = useMemo(() => {
-    if (!companyStatusData) return [];
-    return companyStatusData.map(item => {
-        const studentsWithAvg = (item.students || []).map(student => {
-            const tech = parseFloat(student.technicalScore) || 0;
-            const sincere = parseFloat(student.sincerityScore) || 0;
-            const comm = parseFloat(student.communicationScore) || 0;
-            const avg = Math.round((tech + sincere + comm) / 3);
-            return { ...student, overallEachStudentProbability: avg };
-        });
-        const totalProbability = studentsWithAvg.reduce((sum, s) => sum + s.overallEachStudentProbability, 0);
-        const overallCompanyProbability = studentsWithAvg.length > 0 ? Math.round(totalProbability / studentsWithAvg.length) : 0;
-        let closingStatus = 'Risk';
-        if (overallCompanyProbability >= 90) closingStatus = 'Can Close';
-        else if (overallCompanyProbability >= 70) closingStatus = 'Moderate';
-        
-        return { 
-          _id: item._id, 
-          companyName: item.companyName, 
-          role: item.role, 
-          closingStatus: closingStatus
-        };
-    }).sort((a,b) => a.companyName.localeCompare(b.companyName));
-  }, [companyStatusData]);
+  // --- MODIFICATION: Removed the entire 'processedCompanyStatus' useMemo hook as it's no longer needed. ---
 
   const handleShowInstructorsModal = async () => {
     setShowInstructorsModal(true);
@@ -169,30 +142,6 @@ const ManagerDashboard = ({ setPageLoading }) => {
     if (percentage > 0) return 'In Progress';
     return 'Yet to Start';
   }
-
-  const itemProgressChartData = {
-    labels: ['Completed', 'In Progress', 'Yet to Start'],
-    datasets: [
-      {
-        label: 'Number of Items',
-        data: [
-          stats?.itemStats?.['Completed'] || 0,
-          stats?.itemStats?.['In Progress'] || 0,
-          stats?.itemStats?.['Yet to Start'] || 0,
-        ],
-        backgroundColor: ['rgba(40, 167, 69, 0.7)','rgba(255, 193, 7, 0.7)','rgba(220, 53, 69, 0.7)',],
-        borderColor: ['rgba(40, 167, 69, 1)','rgba(255, 193, 7, 1)','rgba(220, 53, 69, 1)',],
-        borderWidth: 1,
-      },
-    ],
-  };
-
-  const itemProgressChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {legend: { display: false },title: { display: false },tooltip: {callbacks: {label: function(context) {return `${context.dataset.label || ''}: ${context.parsed.y} items`;}}}},
-    scales: { y: { beginAtZero: true, title: { display: true, text: 'Number of Items' } }, x: { title: {display: true, text: 'Status'} } },
-  };
 
   const techStackProgressChartData = {
     labels: ['Completed Stacks', 'In Progress Stacks', 'Yet to Start Stacks'],
@@ -303,8 +252,9 @@ const ManagerDashboard = ({ setPageLoading }) => {
           </Row>
 
           {/* 3. Tech Stack Item Progress and Company Closing Status */}
+          {/* --- MODIFICATION: The main layout Row now only contains one column which spans the full width. --- */}
           <Row className="mb-4">
-            <Col lg={7}>
+            <Col lg={12}>
               <Card className="border-0 shadow-sm h-100">
                 <Card.Header className="bg-white py-3 fw-bold"><h5 className="mb-0">Tech Stack Item Progress</h5></Card.Header>
                 <Card.Body className="p-0">
@@ -333,55 +283,7 @@ const ManagerDashboard = ({ setPageLoading }) => {
                 </Card.Body>
               </Card>
             </Col>
-            <Col lg={5}>
-              <Card className="border-0 shadow-sm h-100">
-                <Card.Header className="bg-white py-3 d-flex justify-content-between align-items-center fw-bold">
-                  <h5 className="mb-0">Company Closing Status</h5>
-                  <Link to="/critical-points?tab=status" className="btn btn-outline-primary btn-sm rounded-pill px-3">
-                     <i className="fas fa-eye me-1"></i>
-                     View All
-                  </Link>
-                </Card.Header>
-                <Card.Body className="p-0">
-                  {processedCompanyStatus.length > 0 ? (
-                    <div className="table-responsive" style={{ maxHeight: '400px' }}>
-                      <Table hover className="mb-0 align-middle">
-                        <thead className="bg-light">
-                          <tr>
-                            <th>Company Name</th>
-                            <th>Role</th>
-                            <th className="text-center">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {processedCompanyStatus.map((item) => (
-                            <tr key={item._id}>
-                              <td className="fw-medium">{item.companyName}</td>
-                              <td>{item.role}</td>
-                              <td className="text-center">
-                                <Badge 
-                                  bg={
-                                    item.closingStatus === 'Can Close' ? 'success' :
-                                    item.closingStatus === 'Moderate' ? 'warning' : 'danger'
-                                  } 
-                                  className="rounded-pill px-2 py-1"
-                                >
-                                  {item.closingStatus}
-                                </Badge>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </Table>
-                    </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <p className="mb-0 text-muted">No company status data available.</p>
-                    </div>
-                  )}
-                </Card.Body>
-              </Card>
-            </Col>
+            {/* --- MODIFICATION: The Col block for "Company Closing Status" has been completely removed. --- */}
           </Row>
 
           {/* 4. Overall Item/Tech Stack Progress Chart */}
