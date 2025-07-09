@@ -1,9 +1,9 @@
 // client/src/pages/StudentsTrackerPage.jsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Nav, Card, Alert, Spinner, Button, Modal, Form, Table, InputGroup } from 'react-bootstrap';
-// --- START MODIFICATION: Added Navigate for permission check ---
 import { Navigate } from 'react-router-dom';
-// --- END MODIFICATION ---
+import DatePicker from 'react-datepicker'; // Import DatePicker
+import "react-datepicker/dist/react-datepicker.css"; // Import styles
 import studentsTrackerService from '../services/studentsTrackerService.js';
 import { sheetConfig, ratingCalculations, aggregateAssignmentMarks, calculateCompanyClosingScore } from '../utils/studentsTrackerConfig.js';
 import Papa from 'papaparse';
@@ -11,17 +11,13 @@ import CompanyInteractionAdminView from '../components/students-tracker/CompanyI
 import useAuth from '../hooks/useAuth.js';
 
 const StudentsTrackerPage = () => {
-    // --- START MODIFICATION: Added auth hook and permission checks ---
     const { user } = useAuth();
 
-    // Check if an instructor or CRM has been granted access. Redirect if not.
     if ((user.role === 'instructor' || user.role === 'crm') && !user.canAccessStudentsTracker) {
         return <Navigate to="/not-authorized" replace />;
     }
 
-    // Determine if the current user has editing capabilities for the sheet.
     const canEdit = user.role === 'admin' || user.role === 'instructor' || user.role === 'crm';
-    // --- END MODIFICATION ---
 
     const [activeTab, setActiveTab] = useState('aseRatings');
     const [data, setData] = useState({});
@@ -41,6 +37,8 @@ const StudentsTrackerPage = () => {
     const [recordToDelete, setRecordToDelete] = useState(null);
     const [showRemarksModal, setShowRemarksModal] = useState(false);
     const [remarksModalContent, setRemarksModalContent] = useState('');
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [historyModalData, setHistoryModalData] = useState(null);
 
     const currentSheetConfig = useMemo(() => sheetConfig[activeTab], [activeTab]);
 
@@ -93,6 +91,23 @@ const StudentsTrackerPage = () => {
         } catch (e) {
             return 'Invalid Date';
         }
+    };
+
+    const formatDateTimeForDisplay = (dateString) => {
+        if (!dateString) return '';
+        try {
+            return new Date(dateString).toLocaleString('en-US', {
+                year: 'numeric', month: 'short', day: 'numeric',
+                hour: 'numeric', minute: '2-digit', hour12: true
+            });
+        } catch (e) {
+            return 'Invalid Date';
+        }
+    };
+    
+    const handleShowHistoryModal = (row) => {
+        setHistoryModalData(row);
+        setShowHistoryModal(true);
     };
     
     const handlePaste = (e, startingIndex) => {
@@ -306,6 +321,18 @@ const StudentsTrackerPage = () => {
             </span>
         );
     };
+    
+    // --- START: MODIFIED COMPONENT ---
+    // Helper function to format the field names from camelCase for display.
+    const getFieldName = (fieldKey) => {
+        const columnConfig = currentSheetConfig?.columns.find(c => c.field === fieldKey);
+        if (columnConfig?.header) {
+            return columnConfig.header;
+        }
+        const result = fieldKey.replace(/([A-Z])/g, ' $1');
+        return result.charAt(0).toUpperCase() + result.slice(1);
+    };
+    // --- END: MODIFIED COMPONENT ---
 
     return (
         <div>
@@ -334,7 +361,6 @@ const StudentsTrackerPage = () => {
                </Nav>
            </div>
 
-            {/* --- START MODIFICATION: Conditionally render based on active tab and editing permissions --- */}
             {activeTab === 'companyInteractionTracking' ? (
                 <CompanyInteractionAdminView onUpdate={fetchDataForTab} user={user} />
             ) : (
@@ -378,8 +404,6 @@ const StudentsTrackerPage = () => {
                              </div>
                         </div>
                     </Card.Header>
-                    {/* ... (rest of the component, which is now aware of canEdit) ... */}
-            {/* --- END MODIFICATION --- */}
                     <Card.Body className="p-0">
                         {loading ? (
                             <div className="text-center p-5"><Spinner /></div>
@@ -413,7 +437,6 @@ const StudentsTrackerPage = () => {
                                         <thead className="table-light">
                                             <tr>
                                                 {currentSheetConfig?.columns.map(col => <th key={col.field}>{col.header}</th>)}
-                                                {/* --- MODIFICATION: Show Actions column only if canEdit is true --- */}
                                                 {canEdit && <th className="text-center">Actions</th>}
                                             </tr>
                                         </thead>
@@ -425,6 +448,25 @@ const StudentsTrackerPage = () => {
                                                     <tr key={row._id}>
                                                         {currentSheetConfig.columns.map(col => {
                                                             const truncatableColumns = ['remarks', 'studentQuestion', 'studentAnswer'];
+                                                            if (col.field === 'editHistory') {
+                                                                const hasHistory = row.createdBy || (row.updatedBy && row.updatedBy.length > 0);
+                                                                return (
+                                                                    <td key={col.field} className="text-center">
+                                                                        {hasHistory ? (
+                                                                            <Button 
+                                                                                variant="link" 
+                                                                                size="sm" 
+                                                                                className="p-0 text-decoration-none" 
+                                                                                onClick={() => handleShowHistoryModal(row)}
+                                                                            >
+                                                                                View
+                                                                            </Button>
+                                                                        ) : (
+                                                                            <span className="text-muted"></span>
+                                                                        )}
+                                                                    </td>
+                                                                );
+                                                            }
                                                             return (
                                                                 <td key={col.field}>
                                                                     {truncatableColumns.includes(col.field)
@@ -437,7 +479,6 @@ const StudentsTrackerPage = () => {
                                                                 </td>
                                                             );
                                                         })}
-                                                        {/* --- MODIFICATION: Show action buttons only if canEdit is true --- */}
                                                         {canEdit && <td className="text-center"><Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleOpenEditModal(row)}><i className="fas fa-edit"></i></Button><Button variant="outline-danger" size="sm" onClick={() => handleOpenDeleteModal(row)}><i className="fas fa-trash"></i></Button></td>}
                                                     </tr>
                                                 ))
@@ -461,14 +502,14 @@ const StudentsTrackerPage = () => {
                         <Table striped bordered size="sm">
                             <thead>
                                 <tr>
-                                    {currentSheetConfig?.columns.map(col => !col.readOnly && <th key={col.field} style={{ minWidth: col.minWidth || '120px' }}>{col.header}</th>)}
+                                    {currentSheetConfig?.columns.map(col => !col.readOnly && col.field !== 'editHistory' && <th key={col.field} style={{ minWidth: col.minWidth || '120px' }}>{col.header}</th>)}
                                     <th style={{ width: '50px' }}>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {newEntriesData.map((row, index) => (
                                     <tr key={index}>
-                                        {currentSheetConfig?.columns.map((col, colIndex) => !col.readOnly && (
+                                        {currentSheetConfig?.columns.map((col, colIndex) => !col.readOnly && col.field !== 'editHistory' && (
                                             <td key={col.field}>
                                                 {col.type === 'dropdown' ? (
                                                     <Form.Select size="sm" value={row[col.field] || ''} onChange={(e) => handleNewEntryChange(index, col.field, e.target.value)}>
@@ -524,7 +565,7 @@ const StudentsTrackerPage = () => {
                     {error && <Alert variant="danger" size="sm" className="py-2">{error}</Alert>}
                     {editingRecord && (
                         <Form>
-                            {currentSheetConfig?.columns.map(col => !col.readOnly && (
+                            {currentSheetConfig?.columns.map(col => !col.readOnly && col.field !== 'editHistory' && (
                                 <Form.Group key={col.field} className="mb-3">
                                     <Form.Label>{col.header}</Form.Label>
                                     {col.type === 'dropdown' ? (
@@ -532,6 +573,13 @@ const StudentsTrackerPage = () => {
                                             <option value="">Select...</option>
                                             {(col.options || []).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                                         </Form.Select>
+                                    ) : col.type === 'date' ? (
+                                        <DatePicker 
+                                            selected={editingRecord[col.field] ? new Date(editingRecord[col.field]) : null}
+                                            onChange={date => handleEditingRecordChange(col.field, date)}
+                                            className="form-control"
+                                            dateFormat="MM/dd/yyyy"
+                                        />
                                     ) : col.type === 'textarea' ? (
                                         <Form.Control 
                                             as="textarea"
@@ -588,6 +636,75 @@ const StudentsTrackerPage = () => {
                     </Button>
                 </Modal.Footer>
             </Modal>
+
+            {/* --- START: MODIFIED MODAL with new columns and rendering logic --- */}
+            <Modal show={showHistoryModal} onHide={() => setShowHistoryModal(false)} centered size="xl">
+                <Modal.Header closeButton>
+                    <Modal.Title><i className="fas fa-history me-2"></i>Edit History</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {historyModalData && (
+                        <>
+                            <p className="mb-2">
+                                <strong>Record:</strong> {historyModalData.studentName} ({historyModalData.companyName})
+                            </p>
+                            <Table striped bordered size="sm" responsive>
+                                <thead className="table-light">
+                                    <tr>
+                                        <th>Action</th>
+                                        <th>User</th>
+                                        <th>Date & Time</th>
+                                        <th>Field Modified</th>
+                                        <th>Previous Value</th>
+                                        <th>Modified Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {historyModalData.createdBy && (
+                                        <tr>
+                                            <td>Created</td>
+                                            <td>{historyModalData.createdBy.firstName ? `${historyModalData.createdBy.firstName} ${historyModalData.createdBy.lastName || ''}`.trim() : historyModalData.createdBy.username}</td>
+                                            <td>{formatDateTimeForDisplay(historyModalData.createdAt)}</td>
+                                            <td colSpan="3" className="text-muted text-center">N/A (Initial Record)</td>
+                                        </tr>
+                                    )}
+                                    {(historyModalData.updatedBy || []).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map((edit, editIndex) => (
+                                        <React.Fragment key={editIndex}>
+                                            {(edit.changes && edit.changes.length > 0) ? (
+                                                edit.changes.map((change, changeIndex) => (
+                                                    <tr key={`${editIndex}-${changeIndex}`}>
+                                                        {changeIndex === 0 && (
+                                                            <>
+                                                                <td rowSpan={edit.changes.length}>Edited</td>
+                                                                <td rowSpan={edit.changes.length}>{edit.user ? (edit.user.firstName ? `${edit.user.firstName} ${edit.user.lastName || ''}`.trim() : edit.user.username) : 'Unknown User'}</td>
+                                                                <td rowSpan={edit.changes.length}>{formatDateTimeForDisplay(edit.timestamp)}</td>
+                                                            </>
+                                                        )}
+                                                        <td><strong>{getFieldName(change.field)}</strong></td>
+                                                        <td style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxWidth: '200px'}}>{change.from}</td>
+                                                        <td style={{whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxWidth: '200px'}}>{change.to}</td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr key={editIndex}>
+                                                    <td>Edited</td>
+                                                    <td>{edit.user ? (edit.user.firstName ? `${edit.user.firstName} ${edit.user.lastName || ''}`.trim() : edit.user.username) : 'Unknown User'}</td>
+                                                    <td>{formatDateTimeForDisplay(edit.timestamp)}</td>
+                                                    <td colSpan="3" className="text-muted text-center">No field changes were recorded.</td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
+                                    ))}
+                                </tbody>
+                            </Table>
+                        </>
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowHistoryModal(false)}>Close</Button>
+                </Modal.Footer>
+            </Modal>
+            {/* --- END: MODIFIED MODAL --- */}
             
             <style type="text/css">
                 {`
