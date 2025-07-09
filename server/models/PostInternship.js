@@ -33,14 +33,13 @@ const TaskSchema = new mongoose.Schema({
 const PostInternshipSchema = new mongoose.Schema({
   companyName: { type: String, required: true, trim: true },
   role: { type: String, required: true, trim: true },
+  // Openings is now a manually managed field
   openings: { type: Number },
   studentName: { type: String, required: true, trim: true },
   niatId: { type: String, trim: true },
-  technicalScore: { type: Number },
-  sincerityScore: { type: Number },
-  communicationScore: { type: Number },
-  overallStudentProbability: { type: Number },
+  // HiredDate defaults to when the record is created, can be edited manually
   hiredDate: { type: Date, default: Date.now },
+  // This is still set manually in the "Add/Edit" modal on the PostInternships page
   internshipStartDate: { type: Date, default: null },
 
   // --- NEW FIELD ADDED ---
