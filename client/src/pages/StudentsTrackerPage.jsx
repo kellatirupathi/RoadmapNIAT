@@ -503,10 +503,10 @@ const StudentsTrackerPage = () => {
                                                                     <Dropdown.Toggle as={ActionMenuToggle} id={`actions-dropdown-${row._id}`} />
                                                                     <Dropdown.Menu align="end">
                                                                         <Dropdown.Item onClick={() => handleOpenEditModal(row)}>
-                                                                            <i className="fas fa-edit me-2 text-primary"></i> Edit Entry
+                                                                            <i className="fas fa-edit me-2 text-primary"></i> Edit
                                                                         </Dropdown.Item>
                                                                         <Dropdown.Item onClick={() => handleOpenDeleteModal(row)} className="text-danger">
-                                                                            <i className="fas fa-trash me-2"></i> Delete Entry
+                                                                            <i className="fas fa-trash me-2"></i> Delete
                                                                         </Dropdown.Item>
                                                                     </Dropdown.Menu>
                                                                 </Dropdown>
