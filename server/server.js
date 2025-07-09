@@ -22,7 +22,9 @@ import internshipsTrackerRoutes from './routes/internshipsTrackerRoutes.js';
 import criticalPointsRoutes from './routes/criticalPointsRoutes.js';
 import postInternshipRoutes from './routes/postInternshipRoutes.js'; 
 import studentsTrackerRoutes from './routes/studentsTrackerRoutes.js';
-import companyInteractionTrackingRoutes from './routes/companyInteractionTrackingRoutes.js'; // --- NEW IMPORT ---
+import companyInteractionTrackingRoutes from './routes/companyInteractionTrackingRoutes.js';
+// --- NEW IMPORT: Add the new Overall HUB routes ---
+import overallHubRoutes from './routes/overallHubRoutes.js';
 
 // Import middleware
 import errorHandler from './middleware/errorHandler.js';
@@ -107,7 +109,9 @@ app.use('/api/internships', internshipsTrackerRoutes);
 app.use('/api/critical-points', criticalPointsRoutes);
 app.use('/api/post-internships', postInternshipRoutes);
 app.use('/api/students-tracker', studentsTrackerRoutes); 
-app.use('/api/company-interactions', companyInteractionTrackingRoutes); // --- ADD NEW ROUTE ---
+app.use('/api/company-interactions', companyInteractionTrackingRoutes);
+// --- NEW ROUTE ADDED: Use the new Overall HUB routes ---
+app.use('/api/overall-hub', overallHubRoutes);
 
 
 // Root Route
