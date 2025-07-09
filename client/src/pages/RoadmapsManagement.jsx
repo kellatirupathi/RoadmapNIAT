@@ -6,9 +6,7 @@ import * as roadmapService from '../services/roadmapService';
 import userService from '../services/userService';
 import CreateRoadmapModal from '../components/CreateRoadmapModal/CreateRoadmapModal';
 import TechStackTable from '../components/TechStackTable/TechStackTable';
-import DatePicker from 'react-datepicker';
-import "react-datepicker/dist/react-datepicker.css";
-import Papa from 'papaparse'; // **Import papaparse for CSV generation**
+import Papa from 'papaparse';
 
 // Helper component for displaying lists with a dropdown for overflow
 const OverflowDropdownDisplay = ({ items, label }) => {
@@ -78,8 +76,10 @@ const RoadmapsManagement = ({ setPageLoading }) => {
   const [roleFilter, setRoleFilter] = useState('');
   const [crmUsers, setCrmUsers] = useState([]);
 
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
+  // --- START MODIFICATION: Replaced Date filters with CRM and Status filters ---
+  const [crmFilter, setCrmFilter] = useState(''); // Default is empty string for 'All CRMs'
+  const [statusFilter, setStatusFilter] = useState('All'); // Default is 'All'
+  // --- END MODIFICATION ---
 
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -105,9 +105,11 @@ const RoadmapsManagement = ({ setPageLoading }) => {
     fetchRoadmapsAndUsers();
   }, [setPageLoading]);
 
+  // --- START MODIFICATION: Update useEffect dependencies ---
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, companyFilter, roleFilter, startDate, endDate]);
+  }, [searchTerm, companyFilter, roleFilter, crmFilter, statusFilter]);
+  // --- END MODIFICATION ---
 
   const { uniqueCompanies, uniqueRoles } = useMemo(() => {
     if (!roadmaps) return { uniqueCompanies: [], uniqueRoles: [] };
@@ -190,7 +192,6 @@ const RoadmapsManagement = ({ setPageLoading }) => {
       await roadmapService.updateRoadmap(editingRoadmap._id, payload);
       setShowEditModal(false); setEditingRoadmap(null);
       await fetchRoadmapsAndUsers();
-      setSuccess("Roadmap updated and re-published successfully!");
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to update and re-publish roadmap.');
     } finally {
@@ -212,6 +213,17 @@ const RoadmapsManagement = ({ setPageLoading }) => {
   };
   
   const crmUserMap = useMemo(() => new Map(crmUsers.map(u => [u.username, u.displayName])), [crmUsers]);
+  
+  const calculateRoadmapStatus = (roadmap) => {
+    const allItems = (roadmap.isConsolidated ? (roadmap.roles || []).flatMap(r => r.techStacks || []) : (roadmap.techStacks || [])).flatMap(ts => ts?.roadmapItems || []);
+    if (allItems.length === 0) return { status: 'Empty', percentage: 0 };
+    const total = allItems.length;
+    const completed = allItems.filter(item => item.completionStatus === 'Completed').length;
+    const percentage = Math.round((completed / total) * 100);
+    if (percentage === 100) return { status: 'Completed', percentage };
+    if (completed === 0 && allItems.every(i => i.completionStatus === 'Yet to Start')) return { status: 'Yet to Start', percentage };
+    return { status: 'In Progress', percentage };
+  };
 
   const filteredRoadmaps = useMemo(() => roadmaps.filter(r => {
     const searchLower = searchTerm.toLowerCase();
@@ -229,20 +241,16 @@ const RoadmapsManagement = ({ setPageLoading }) => {
     const companyMatch = !companyFilter || r.companyName === companyFilter;
     const roleMatch = !roleFilter || (r.isConsolidated ? (r.roles || []).some(role => role.title === roleFilter) : r.role === roleFilter);
 
-    let dateMatch = true;
-    if (startDate) {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        if (new Date(r.createdDate) < start) dateMatch = false;
-    }
-    if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        if (new Date(r.createdDate) > end) dateMatch = false;
-    }
+    // --- START MODIFICATION: Add new filter matches ---
+    const crmMatch = !crmFilter || 
+                     (crmFilter === 'unassigned' ? !r.crmAffiliation : r.crmAffiliation === crmFilter);
+
+    const { status } = calculateRoadmapStatus(r);
+    const statusMatch = statusFilter === 'All' || status === statusFilter;
       
-    return searchMatch && companyMatch && roleMatch && dateMatch;
-  }), [roadmaps, searchTerm, crmUserMap, companyFilter, roleFilter, startDate, endDate]);
+    return searchMatch && companyMatch && roleMatch && crmMatch && statusMatch;
+  }), [roadmaps, searchTerm, crmUserMap, companyFilter, roleFilter, crmFilter, statusFilter]); // <-- Updated dependencies
+  // --- END MODIFICATION ---
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
@@ -251,17 +259,6 @@ const RoadmapsManagement = ({ setPageLoading }) => {
 
   const formatDate = (dateString) => new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   
-  const calculateRoadmapStatus = (roadmap) => {
-    const allItems = (roadmap.isConsolidated ? (roadmap.roles || []).flatMap(r => r.techStacks || []) : (roadmap.techStacks || [])).flatMap(ts => ts?.roadmapItems || []);
-    if (allItems.length === 0) return { status: 'Empty', percentage: 0 };
-    const total = allItems.length;
-    const completed = allItems.filter(item => item.completionStatus === 'Completed').length;
-    const percentage = Math.round((completed / total) * 100);
-    if (percentage === 100) return { status: 'Completed', percentage };
-    if (completed === 0 && allItems.every(i => i.completionStatus === 'Yet to Start')) return { status: 'Yet to Start', percentage };
-    return { status: 'In Progress', percentage };
-  };
-
   const getStatusBadgeVariant = (status) => {
       switch (status) {
           case 'Completed': return 'success'; case 'In Progress': return 'warning'; case 'Yet to Start': return 'danger'; default: return 'secondary';
@@ -363,8 +360,6 @@ const RoadmapsManagement = ({ setPageLoading }) => {
 
   return (
     <div>
-      <div id="datepicker-portal"></div>
-      
       <Row className="g-3 mb-4">
         {[
           { title: "Total Roadmaps", value: dashboardStats.totalRoadmaps, icon: "fa-route", color: "primary" },
@@ -404,13 +399,44 @@ const RoadmapsManagement = ({ setPageLoading }) => {
           </div>
         </Card.Header>
         <Card.Body>
+            {/* --- START MODIFICATION: Filter controls --- */}
             <Row className="g-2 mb-3 align-items-end">
-                <Col lg={4}><InputGroup><InputGroup.Text><i className="fas fa-search text-muted"></i></InputGroup.Text><Form.Control type="text" placeholder="Search Company, Role.." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></InputGroup></Col>
-                <Col><Form.Select value={companyFilter} onChange={e => setCompanyFilter(e.target.value)}><option value="">All Companies</option>{uniqueCompanies.map(c => <option key={c} value={c}>{c}</option>)}</Form.Select></Col>
-                <Col><Form.Select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}><option value="">All Roles</option>{uniqueRoles.map(r => <option key={r} value={r}>{r}</option>)}</Form.Select></Col>
-                <Col><DatePicker selected={startDate} onChange={date => setStartDate(date)} className="form-control" isClearable placeholderText="Start Date" portalId="datepicker-portal" popperPlacement="bottom-start" /></Col>
-                <Col><DatePicker selected={endDate} onChange={date => setEndDate(date)} minDate={startDate} className="form-control" isClearable placeholderText="End Date" portalId="datepicker-portal" popperPlacement="bottom-start" /></Col>
+                <Col lg={4}>
+                  <InputGroup>
+                    <InputGroup.Text><i className="fas fa-search text-muted"></i></InputGroup.Text>
+                    <Form.Control type="text" placeholder="Search Company, Role, Tech Stacks..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                  </InputGroup>
+                </Col>
+                <Col>
+                    <Form.Select value={companyFilter} onChange={e => setCompanyFilter(e.target.value)}>
+                        <option value="">All Companies</option>
+                        {uniqueCompanies.map(c => <option key={c} value={c}>{c}</option>)}
+                    </Form.Select>
+                </Col>
+                <Col>
+                    <Form.Select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
+                        <option value="">All Roles</option>
+                        {uniqueRoles.map(r => <option key={r} value={r}>{r}</option>)}
+                    </Form.Select>
+                </Col>
+                <Col>
+                  <Form.Select value={crmFilter} onChange={e => setCrmFilter(e.target.value)}>
+                    <option value="">All CRMs</option>
+                    {crmUsers.map(c => <option key={c._id} value={c.username}>{c.displayName || c.username}</option>)}
+                    <option value="unassigned">Unassigned</option>
+                  </Form.Select>
+                </Col>
+                <Col>
+                  <Form.Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                      <option value="All">All Statuses</option>
+                      <option value="Completed">Completed</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Yet to Start">Yet to Start</option>
+                      <option value="Empty">Empty</option>
+                  </Form.Select>
+                </Col>
             </Row>
+            {/* --- END MODIFICATION --- */}
         </Card.Body>
         <Card.Body className="p-0">
           <div className="table-responsive">
@@ -522,7 +548,6 @@ const RoadmapsManagement = ({ setPageLoading }) => {
         .company-name-link:hover { text-decoration: underline; color: var(--bs-primary); }
         .details-role-table th { font-size: 0.8rem; text-transform: uppercase; color: #6c757d; }
         .details-role-table td { font-size: 0.9rem; }
-        #datepicker-portal .react-datepicker-popper { z-index: 1060 !important; }
       `}</style>
     </div>
   );
