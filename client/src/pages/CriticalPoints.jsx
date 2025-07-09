@@ -1,77 +1,53 @@
 // client/src/pages/CriticalPoints.jsx
-import React, { useState, useEffect } from 'react';
-import { Nav, Spinner, Alert } from 'react-bootstrap';
-import { useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Spinner, Alert, Card } from 'react-bootstrap';
+// --- REMOVED: Nav and useLocation are no longer needed as the tab interface is gone. ---
 import useAuth from '../hooks/useAuth.js';
 import InteractionsFeedback from '../components/critical-points/InteractionsFeedback.jsx';
-import CompaniesStatus from '../components/critical-points/CompaniesStatus.jsx';
-import { interactionsService, companyStatusService } from '../services/criticalPointsService.js';
+// --- REMOVED: 'companyStatusService' and 'CompaniesStatus' component imports were deleted. ---
+import { interactionsService } from '../services/criticalPointsService.js';
 
 const CriticalPointsPage = () => {
     const { user } = useAuth();
-    const location = useLocation();
-    const queryParams = new URLSearchParams(location.search);
-    const initialTab = queryParams.get('tab') === 'status' ? 'status' : 'interactions';
 
-    const [activeTab, setActiveTab] = useState(initialTab);
+    // --- REMOVED: State management for activeTab is no longer necessary. ---
     const [interactionsData, setInteractionsData] = useState([]);
-    const [companyStatusData, setCompanyStatusData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     
-    const fetchData = async () => {
+    // --- MODIFICATION: The fetchData function has been simplified. ---
+    // It no longer needs to fetch data for two different components and now only retrieves
+    // the 'interactions' data, reducing complexity and improving performance.
+    const fetchData = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
-            const [interactionsRes, companyStatusRes] = await Promise.all([
-                interactionsService.getAll(),
-                companyStatusService.getAll(),
-            ]);
+            const interactionsRes = await interactionsService.getAll();
             setInteractionsData(interactionsRes.data || []);
-            setCompanyStatusData(companyStatusRes.data || []);
+            // --- REMOVED: The API call to companyStatusService.getAll() has been deleted. ---
         } catch (err) {
             setError(err.response?.data?.error || 'Failed to fetch critical points data.');
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
     
+    // Authorization check to determine if the user has editing rights on the page.
     const canEdit = user.role === 'admin' || user.role === 'crm' || (user.role === 'instructor' && user.canAccessCriticalPoints);
     
+    // Initial data fetch when the component mounts.
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [fetchData]);
 
-    // Sync active tab with URL query param in case the user navigates back/forward
-    useEffect(() => {
-        setActiveTab(initialTab);
-    }, [location.search, initialTab]);
+    // --- REMOVED: The useEffect hook that synced the URL query param with the active tab is deleted. ---
 
     return (
         <div className="critical-points-page">
 
             {error && <Alert variant="danger" onClose={() => setError('')} dismissible>{error}</Alert>}
             
-            <div className="mb-3">
-               <Nav className="nav-tabs border-bottom-0 bg-transparent" activeKey={activeTab} onSelect={(k) => setActiveTab(k || 'interactions')}>
-                   <Nav.Item>
-                       <Nav.Link 
-                           eventKey="interactions" 
-                           className={`px-4 py-2 border-0 bg-transparent ${activeTab === 'interactions' ? 'text-primary border-bottom border-primary border-2' : 'text-secondary'}`}
-                       >
-                           Interactions Feedback
-                       </Nav.Link>
-                   </Nav.Item>
-                   <Nav.Item>
-                       <Nav.Link 
-                           eventKey="status" 
-                           className={`px-4 py-2 border-0 bg-transparent ${activeTab === 'status' ? 'text-primary border-bottom border-primary border-2' : 'text-secondary'}`}
-                       >
-                           Companies Status
-                       </Nav.Link>
-                   </Nav.Item>
-               </Nav>
-           </div>
+            {/* --- REMOVED: The entire Nav and Nav.Item structure for tabs has been deleted from the render block. --- */}
 
             {loading ? (
                  <div className="text-center py-5">
@@ -79,26 +55,10 @@ const CriticalPointsPage = () => {
                      <p className="mt-3 text-muted">Loading data...</p>
                  </div>
             ) : (
-                <>
-                    {activeTab === 'interactions' && <InteractionsFeedback data={interactionsData} canEdit={canEdit} onUpdate={fetchData} />}
-                    {activeTab === 'status' && <CompaniesStatus data={companyStatusData} canEdit={canEdit} onUpdate={fetchData} />}
-                </>
+                // --- MODIFICATION: The component now directly renders InteractionsFeedback ---
+                // Conditional rendering based on activeTab has been removed, simplifying the JSX.
+                <InteractionsFeedback data={interactionsData} canEdit={canEdit} onUpdate={fetchData} />
             )}
-            <style>{`
-                .nav-tabs {
-                    border-bottom: 1px solid #dee2e6;
-                }
-                .nav-tabs .nav-link {
-                    margin-bottom: -1px;
-                    background: none;
-                    font-size: 0.9rem;
-                    font-weight: 500;
-                    border-radius: 0;
-                }
-                .nav-tabs .nav-link:hover:not(.active) {
-                    border-color: transparent;
-                }
-            `}</style>
         </div>
     );
 };
