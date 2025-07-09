@@ -52,14 +52,26 @@ const CriticalPointsPage = () => {
 
             {error && <Alert variant="danger" onClose={() => setError('')} dismissible>{error}</Alert>}
             
-            <Nav variant="tabs" activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-4">
-                <Nav.Item>
-                    <Nav.Link eventKey="interactions">Interactions Feedback</Nav.Link>
-                </Nav.Item>
-                <Nav.Item>
-                    <Nav.Link eventKey="status">Companies Status</Nav.Link>
-                </Nav.Item>
-            </Nav>
+            <div className="mb-3">
+               <Nav className="nav-tabs border-bottom-0 bg-transparent" activeKey={activeTab} onSelect={(k) => setActiveTab(k || 'interactions')}>
+                   <Nav.Item>
+                       <Nav.Link 
+                           eventKey="interactions" 
+                           className={`px-4 py-2 border-0 bg-transparent ${activeTab === 'interactions' ? 'text-primary border-bottom border-primary border-2' : 'text-secondary'}`}
+                       >
+                           Interactions Feedback
+                       </Nav.Link>
+                   </Nav.Item>
+                   <Nav.Item>
+                       <Nav.Link 
+                           eventKey="status" 
+                           className={`px-4 py-2 border-0 bg-transparent ${activeTab === 'status' ? 'text-primary border-bottom border-primary border-2' : 'text-secondary'}`}
+                       >
+                           Companies Status
+                       </Nav.Link>
+                   </Nav.Item>
+               </Nav>
+           </div>
 
             {loading ? (
                  <div className="text-center py-5">
@@ -72,6 +84,21 @@ const CriticalPointsPage = () => {
                     {activeTab === 'status' && <CompaniesStatus data={companyStatusData} canEdit={canEdit} onUpdate={fetchData} />}
                 </>
             )}
+            <style>{`
+                .nav-tabs {
+                    border-bottom: 1px solid #dee2e6;
+                }
+                .nav-tabs .nav-link {
+                    margin-bottom: -1px;
+                    background: none;
+                    font-size: 0.9rem;
+                    font-weight: 500;
+                    border-radius: 0;
+                }
+                .nav-tabs .nav-link:hover:not(.active) {
+                    border-color: transparent;
+                }
+            `}</style>
         </div>
     );
 };
