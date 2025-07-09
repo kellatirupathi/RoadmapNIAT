@@ -1,14 +1,34 @@
 // client/src/pages/StudentsTrackerPage.jsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Nav, Card, Alert, Spinner, Button, Modal, Form, Table, InputGroup } from 'react-bootstrap';
+// --- START MODIFICATION: Imported Dropdown component ---
+import { Nav, Card, Alert, Spinner, Button, Modal, Form, Table, InputGroup, Dropdown } from 'react-bootstrap';
+// --- END MODIFICATION ---
 import { Navigate } from 'react-router-dom';
-import DatePicker from 'react-datepicker'; // Import DatePicker
-import "react-datepicker/dist/react-datepicker.css"; // Import styles
+import DatePicker from 'react-datepicker';
+import "react-datepicker/dist/react-datepicker.css";
 import studentsTrackerService from '../services/studentsTrackerService.js';
 import { sheetConfig, ratingCalculations, aggregateAssignmentMarks, calculateCompanyClosingScore } from '../utils/studentsTrackerConfig.js';
 import Papa from 'papaparse';
 import CompanyInteractionAdminView from '../components/students-tracker/CompanyInteractionAdminView.jsx';
 import useAuth from '../hooks/useAuth.js';
+
+// --- START MODIFICATION: Added ActionMenuToggle component for the dropdown ---
+const ActionMenuToggle = React.forwardRef(({ onClick }, ref) => (
+    <Button
+      variant="link"
+      ref={ref}
+      onClick={(e) => {
+        e.preventDefault();
+        onClick(e);
+      }}
+      className="p-1 text-muted no-caret"
+      title="Actions"
+    >
+      <i className="fas fa-ellipsis-v"></i>
+    </Button>
+));
+ActionMenuToggle.displayName = 'ActionMenuToggle';
+// --- END MODIFICATION ---
 
 const StudentsTrackerPage = () => {
     const { user } = useAuth();
@@ -307,7 +327,7 @@ const StudentsTrackerPage = () => {
         return activeTab === 'aseRatings' ? 'ase-ratings-modal' : '';
     };
 
-    const renderTruncatableContent = (text, fieldName) => {
+    const renderTruncatableContent = (text) => {
         const maxLength = 60;
         if (typeof text !== 'string' || text.length <= maxLength) {
             return text;
@@ -322,8 +342,6 @@ const StudentsTrackerPage = () => {
         );
     };
     
-    // --- START: MODIFIED COMPONENT ---
-    // Helper function to format the field names from camelCase for display.
     const getFieldName = (fieldKey) => {
         const columnConfig = currentSheetConfig?.columns.find(c => c.field === fieldKey);
         if (columnConfig?.header) {
@@ -332,7 +350,6 @@ const StudentsTrackerPage = () => {
         const result = fieldKey.replace(/([A-Z])/g, ' $1');
         return result.charAt(0).toUpperCase() + result.slice(1);
     };
-    // --- END: MODIFIED COMPONENT ---
 
     return (
         <div>
@@ -470,7 +487,7 @@ const StudentsTrackerPage = () => {
                                                             return (
                                                                 <td key={col.field}>
                                                                     {truncatableColumns.includes(col.field)
-                                                                        ? renderTruncatableContent(row[col.field], col.field)
+                                                                        ? renderTruncatableContent(row[col.field])
                                                                         : col.type === 'date' 
                                                                             ? formatDateForDisplay(row[col.field]) 
                                                                             : col.type === 'link' && row[col.field]
@@ -479,7 +496,23 @@ const StudentsTrackerPage = () => {
                                                                 </td>
                                                             );
                                                         })}
-                                                        {canEdit && <td className="text-center"><Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleOpenEditModal(row)}><i className="fas fa-edit"></i></Button><Button variant="outline-danger" size="sm" onClick={() => handleOpenDeleteModal(row)}><i className="fas fa-trash"></i></Button></td>}
+                                                        {/* --- START MODIFICATION: Replaced buttons with Dropdown menu --- */}
+                                                        {canEdit && (
+                                                            <td className="text-center">
+                                                                <Dropdown>
+                                                                    <Dropdown.Toggle as={ActionMenuToggle} id={`actions-dropdown-${row._id}`} />
+                                                                    <Dropdown.Menu align="end">
+                                                                        <Dropdown.Item onClick={() => handleOpenEditModal(row)}>
+                                                                            <i className="fas fa-edit me-2 text-primary"></i> Edit Entry
+                                                                        </Dropdown.Item>
+                                                                        <Dropdown.Item onClick={() => handleOpenDeleteModal(row)} className="text-danger">
+                                                                            <i className="fas fa-trash me-2"></i> Delete Entry
+                                                                        </Dropdown.Item>
+                                                                    </Dropdown.Menu>
+                                                                </Dropdown>
+                                                            </td>
+                                                        )}
+                                                        {/* --- END MODIFICATION --- */}
                                                     </tr>
                                                 ))
                                             )}
@@ -637,7 +670,6 @@ const StudentsTrackerPage = () => {
                 </Modal.Footer>
             </Modal>
 
-            {/* --- START: MODIFIED MODAL with new columns and rendering logic --- */}
             <Modal show={showHistoryModal} onHide={() => setShowHistoryModal(false)} centered size="xl">
                 <Modal.Header closeButton>
                     <Modal.Title><i className="fas fa-history me-2"></i>Edit History</Modal.Title>
@@ -704,7 +736,6 @@ const StudentsTrackerPage = () => {
                     <Button variant="secondary" onClick={() => setShowHistoryModal(false)}>Close</Button>
                 </Modal.Footer>
             </Modal>
-            {/* --- END: MODIFIED MODAL --- */}
             
             <style type="text/css">
                 {`
@@ -733,6 +764,10 @@ const StudentsTrackerPage = () => {
                         .ase-ratings-modal .modal-dialog {
                             max-width: 1350px;
                         }
+                    }
+                    /* For Dropdown menu styling */
+                    .no-caret::after {
+                        display: none;
                     }
                 `}
             </style>
