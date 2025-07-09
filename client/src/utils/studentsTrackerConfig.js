@@ -111,8 +111,21 @@ export const sheetConfig = {
         ]
     },
     companyClosings: {
-        title: "Company Closing Rating", requiredField: 'companyName', columns: [ { header: 'Company', field: 'companyName' }, { header: 'NIAT ID', field: 'niatId' }, { header: 'Student Name', field: 'studentName' }, { header: 'Date', field: 'date', type: 'date' }, { header: 'Rating', field: 'rating', type: 'dropdown', options: companyClosingRatingOptions }, { header: 'Marks', field: 'marks', readOnly: true }, { header: 'Remarks', field: 'remarks' }, { header: 'Overall Marks', field: 'overallMarks', readOnly: true } ]
+        title: "Company Closing Rating", 
+        requiredField: 'companyName', 
+        columns: [
+            { header: 'Company', field: 'companyName' }, 
+            { header: 'NIAT ID', field: 'niatId' }, 
+            { header: 'Student Name', field: 'studentName' }, 
+            { header: 'Date', field: 'date', type: 'date' }, 
+            { header: 'Rating', field: 'rating', type: 'dropdown', options: companyClosingRatingOptions }, 
+            { header: 'Marks', field: 'marks', readOnly: true }, 
+            { header: 'Remarks', field: 'remarks' }, 
+            { header: 'Overall Marks', field: 'overallMarks', readOnly: true },
+            { header: 'History', field: 'editHistory', minWidth: '150px' } // --- START: MODIFICATION ---
+        ]
     },
+    // --- END: MODIFICATION ---
 };
 
 export const ratingCalculations = {
