@@ -1,24 +1,29 @@
-// client/src/pages/OverallHubPage.jsx
+// client/pages/OverallHubPage.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-// --- START MODIFICATION: Import Navigate and useAuth ---
 import { Navigate } from 'react-router-dom';
+// --- MODIFICATION: Added Badge and Form imports ---
+import { Card, Table, Spinner, Alert, Modal, Button, Badge, Form } from 'react-bootstrap';
 import useAuth from '../hooks/useAuth.js';
-// --- END MODIFICATION ---
-import { Card, Table, Spinner, Alert, Modal, Button } from 'react-bootstrap';
 import studentsTrackerService from '../services/studentsTrackerService.js';
 import { ratingCalculations, sheetConfig } from '../utils/studentsTrackerConfig.js';
+// --- NEW IMPORT: Add the service for the HUB status ---
+import overallHubService from '../services/overallHubService.js';
+
 
 const OverallHubPage = () => {
-    // --- START MODIFICATION: Added auth hook and permission checks ---
     const { user } = useAuth();
 
     // Secure the component: redirect if the user role/permission doesn't match
     if ((user.role === 'instructor' || user.role === 'crm') && !user.canAccessOverallHub) {
         return <Navigate to="/not-authorized" replace />;
     }
-    // --- END MODIFICATION ---
+    const canEdit = user.role === 'admin' || user.role === 'crm' || (user.role === 'instructor' && user.canAccessOverallHub);
+
 
     const [aggregatedData, setAggregatedData] = useState([]);
+    // --- NEW STATE: To hold the saved overall statuses ---
+    const [hubStatuses, setHubStatuses] = useState(new Map());
+    const [actionLoading, setActionLoading] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -32,20 +37,33 @@ const OverallHubPage = () => {
         setLoading(true);
         setError('');
         try {
+            // Fetch all raw data and also the saved hub statuses
             const [
                 aseRes, 
                 interactionRes, 
                 assignmentRes, 
                 incrutierRes, 
-                closingRes
+                closingRes,
+                hubStatusesRes // New call
             ] = await Promise.all([
                 studentsTrackerService.aseRatings.getAll(),
                 studentsTrackerService.companyInteractions.getAll(),
                 studentsTrackerService.assignmentRatings.getAll(),
                 studentsTrackerService.incrutierRatings.getAll(),
                 studentsTrackerService.companyClosings.getAll(),
+                overallHubService.getAllStatuses() // Fetching statuses
             ]);
             
+            // Store the statuses in a Map for quick lookup
+            const statusMap = new Map();
+            if (hubStatusesRes.data) {
+                hubStatusesRes.data.forEach(s => {
+                    const key = `${s.companyName}|${s.niatId}`;
+                    statusMap.set(key, s.overallStatus);
+                });
+            }
+            setHubStatuses(statusMap);
+
             const hubMap = new Map();
             const rawDataCache = {
                 aseRatings: aseRes.data || [],
@@ -113,6 +131,33 @@ const OverallHubPage = () => {
         fetchAllData();
     }, [fetchAllData]);
     
+    // --- MODIFICATION: This function now correctly handles an empty `newStatus` string. ---
+    const handleOverallStatusChange = async (hubEntry, newStatus) => {
+        const rowKey = `${hubEntry.companyName}-${hubEntry.niatId}`;
+        setActionLoading(prev => ({...prev, [rowKey]: true}));
+        setError('');
+        
+        try {
+            await overallHubService.updateStatus({
+                companyName: hubEntry.companyName,
+                niatId: hubEntry.niatId,
+                studentName: hubEntry.studentName,
+                newStatus: newStatus // Directly pass the value from the dropdown
+            });
+            // Update local state to reflect the change immediately
+            setHubStatuses(prevMap => {
+                const newMap = new Map(prevMap);
+                newMap.set(`${hubEntry.companyName}|${hubEntry.niatId}`, newStatus);
+                return newMap;
+            });
+
+        } catch(err) {
+            setError('Failed to update status. Please try again.');
+        } finally {
+            setActionLoading(prev => ({...prev, [rowKey]: false}));
+        }
+    };
+
     const handleScoreClick = async (hubEntry, ratingKey) => {
         const config = sheetConfig[ratingKey];
         if (!config) return;
@@ -147,11 +192,7 @@ const OverallHubPage = () => {
     
     const formatDateForDisplay = (dateString) => {
         if (!dateString) return '';
-        try {
-            return new Date(dateString).toLocaleDateString('en-US');
-        } catch (e) {
-            return 'Invalid Date';
-        }
+        try { return new Date(dateString).toLocaleDateString('en-US'); } catch (e) { return 'Invalid Date'; }
     };
     
 
@@ -163,12 +204,22 @@ const OverallHubPage = () => {
         return 'text-danger';
     };
 
+    const renderClosingStatus = (totalScore) => {
+        let status = 'Risk';
+        let variant = 'danger';
+
+        if (totalScore >= 90) { status = 'Can Close'; variant = 'success'; } 
+        else if (totalScore >= 70) { status = 'Moderate'; variant = 'warning'; }
+
+        return <Badge bg={variant} pill>{status}</Badge>;
+    };
+
     return (
         <div>
              <Card className="shadow-sm">
                 <Card.Header as="h5">Overall Student HUB</Card.Header>
                 <Card.Body>
-                    {error && <Alert variant="danger">{error}</Alert>}
+                    {error && <Alert variant="danger" onClose={() => setError('')} dismissible>{error}</Alert>}
                     {loading ? <div className="text-center p-5"><Spinner /></div> : (
                         <div className="table-responsive">
                             <Table striped bordered hover size="sm">
@@ -177,17 +228,24 @@ const OverallHubPage = () => {
                                         <th>Company</th>
                                         <th>NIAT ID</th>
                                         <th>Student</th>
-                                        <th className="text-center">Companies & Students (ASE ratings) (/20)</th>
-                                        <th className="text-center">Company Interaction Rating (/20)</th>
-                                        <th className="text-center">Assignments Rating (/20)</th>
+                                        <th className="text-center">ASE Rating (/20)</th>
+                                        <th className="text-center">Interaction Rating (/20)</th>
+                                        <th className="text-center">Assignment Rating (/20)</th>
                                         <th className="text-center">Incrutier Rating (/20)</th>
-                                        <th className="text-center">Company Closing Rating (/20)</th>
+                                        <th className="text-center">Closing Rating (/20)</th>
                                         <th className="text-center">Overall (/100)</th>
+                                        <th className="text-center">Closing Status</th>
+                                        <th className="text-center" style={{minWidth: '110px'}}>Overall Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {aggregatedData.sort((a,b) => b.total - a.total).map(item => (
-                                        <tr key={`${item.companyName}-${item.niatId}`}>
+                                    {aggregatedData.sort((a,b) => b.total - a.total).map(item => {
+                                        const statusKey = `${item.companyName}|${item.niatId}`;
+                                        const rowKey = `${item.companyName}-${item.niatId}`;
+                                        const currentStatus = hubStatuses.get(statusKey) || '';
+
+                                        return (
+                                        <tr key={rowKey}>
                                             <td>{item.companyName}</td>
                                             <td>{item.niatId}</td>
                                             <td>{item.studentName}</td>
@@ -197,8 +255,24 @@ const OverallHubPage = () => {
                                             <td className={`text-center fw-medium ${getScoreColor(item.incrutierRating, 20)}`} onClick={() => handleScoreClick(item, 'incrutierRatings')} style={{ cursor: 'pointer' }}>{item.incrutierRating}</td>
                                             <td className={`text-center fw-medium ${getScoreColor(item.companyClosingRating, 20)}`} onClick={() => handleScoreClick(item, 'companyClosings')} style={{ cursor: 'pointer' }}>{item.companyClosingRating}</td>
                                             <td className={`text-center fw-bolder ${getScoreColor(item.total, 100)}`}>{item.total}</td>
+                                            <td className="text-center">{renderClosingStatus(item.total)}</td>
+                                            <td className="text-center">
+                                                {actionLoading[rowKey] ? <Spinner size="sm" /> : (
+                                                    canEdit ? (
+                                                        <Form.Select size="sm" value={currentStatus} onChange={(e) => handleOverallStatusChange(item, e.target.value)}>
+                                                            <option value="">- Select -</option>
+                                                            <option value="Hired">Hired</option>
+                                                            <option value="Hold">Hold</option>
+                                                            <option value="Reject">Reject</option>
+                                                        </Form.Select>
+                                                    ) : (
+                                                        <span>{currentStatus || <span className="text-muted">N/A</span>}</span>
+                                                    )
+                                                )}
+                                            </td>
                                         </tr>
-                                    ))}
+                                        )
+                                    })}
                                 </tbody>
                             </Table>
                         </div>
@@ -207,25 +281,17 @@ const OverallHubPage = () => {
             </Card>
 
             <Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)} size="xl" centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>{modalTitle}</Modal.Title>
-                </Modal.Header>
+                <Modal.Header closeButton><Modal.Title>{modalTitle}</Modal.Title></Modal.Header>
                 <Modal.Body>
                     {modalLoading ? <div className="text-center p-4"><Spinner /></div> : (
                         modalData.length > 0 ? (
-                            <div className="table-responsive"> {/* WRAP TABLE IN THIS DIV */}
+                            <div className="table-responsive">
                                 <Table striped bordered size="sm">
-                                    <thead>
-                                        <tr>
-                                            {modalColumns.map(col => <th key={col.field}>{col.header}</th>)}
-                                        </tr>
-                                    </thead>
+                                    <thead><tr>{modalColumns.map(col => <th key={col.field}>{col.header}</th>)}</tr></thead>
                                     <tbody>
                                         {modalData.map(row => (
                                             <tr key={row._id}>
-                                                {modalColumns.map(col => (
-                                                    <td key={col.field}>{col.type === 'date' ? formatDateForDisplay(row[col.field]) : row[col.field]}</td>
-                                                ))}
+                                                {modalColumns.map(col => (<td key={col.field}>{col.type === 'date' ? formatDateForDisplay(row[col.field]) : row[col.field]}</td>))}
                                             </tr>
                                         ))}
                                     </tbody>
@@ -234,9 +300,7 @@ const OverallHubPage = () => {
                         ) : <p className="text-muted text-center">No detailed records found for this category.</p>
                     )}
                 </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowDetailsModal(false)}>Close</Button>
-                </Modal.Footer>
+                <Modal.Footer><Button variant="secondary" onClick={() => setShowDetailsModal(false)}>Close</Button></Modal.Footer>
             </Modal>
         </div>
     );
