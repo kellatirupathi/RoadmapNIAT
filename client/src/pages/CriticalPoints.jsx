@@ -116,21 +116,15 @@ const PaginationComponent = ({ currentPage, totalPages, onPageChange }) => {
 
 const CriticalPointsPage = () => {
     const { user } = useAuth();
-
-    // Data States
     const [interactionsData, setInteractionsData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    
-    // UI Feature States
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(10);
     
-    // Determine user permissions
     const canEdit = user.role === 'admin' || user.role === 'crm' || (user.role === 'instructor' && user.canAccessCriticalPoints);
     
-    // Fetch all interaction records
     const fetchData = useCallback(async () => {
         setLoading(true);
         setError('');
@@ -144,22 +138,17 @@ const CriticalPointsPage = () => {
         }
     }, []);
     
-    // Initial data fetch
     useEffect(() => {
         fetchData();
     }, [fetchData]);
 
-    // Reset page to 1 when search or rows per page changes
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, rowsPerPage]);
     
-    // Memoized filtering logic
     const filteredData = useMemo(() => {
         if (!searchTerm) return interactionsData;
-        
         const lowerCaseSearch = searchTerm.toLowerCase();
-        
         return interactionsData.filter(item => 
             item.company?.toLowerCase().includes(lowerCaseSearch) ||
             item.role?.toLowerCase().includes(lowerCaseSearch) ||
@@ -170,16 +159,14 @@ const CriticalPointsPage = () => {
         );
     }, [interactionsData, searchTerm]);
 
-    // Memoized pagination logic
     const paginatedData = useMemo(() => {
         const startIndex = (currentPage - 1) * rowsPerPage;
         return filteredData.slice(startIndex, startIndex + rowsPerPage);
     }, [filteredData, currentPage, rowsPerPage]);
 
-    // Export to CSV function
     const handleExportCSV = () => {
         if (!filteredData || filteredData.length === 0) {
-            alert("No data to export based on current filters.");
+            alert("No data available to export based on current filters.");
             return;
         }
 
@@ -213,7 +200,6 @@ const CriticalPointsPage = () => {
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
-        
         link.setAttribute("href", url);
         link.setAttribute("download", `Interactions_and_Feedback_Export.csv`);
         document.body.appendChild(link);
@@ -221,18 +207,17 @@ const CriticalPointsPage = () => {
         document.body.removeChild(link);
     };
 
-
     return (
         <div className="critical-points-page">
             <Card className="shadow-sm">
-                <Card.Header as="div" className="py-2 px-3 bg-light">
-                    <div className="d-flex justify-content-between align-items-center">
-                        <div>
-                            {/* Search Input Group */}
-                            <InputGroup size="sm" style={{ maxWidth: '350px' }}>
+                <Card.Header as="div" className="p-3 bg-light">
+                    <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <h5 className="mb-0 fw-medium">Interactions & Feedback</h5>
+                        <div className="d-flex align-items-center gap-2">
+                             <InputGroup size="sm" style={{ maxWidth: '300px' }}>
                                 <Form.Control
                                     type="text"
-                                    placeholder="Search by company, role, interaction..."
+                                    placeholder="Search company, role, interactions..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
@@ -242,11 +227,10 @@ const CriticalPointsPage = () => {
                                     </Button>
                                 }
                             </InputGroup>
+                            <Button variant="outline-success" size="sm" onClick={handleExportCSV}>
+                                <i className="fas fa-file-csv me-2"></i>Export
+                            </Button>
                         </div>
-                        {/* Export Button */}
-                        <Button variant="outline-success" size="sm" onClick={handleExportCSV}>
-                            <i className="fas fa-file-csv me-2"></i>Export
-                        </Button>
                     </div>
                 </Card.Header>
                  
@@ -258,7 +242,6 @@ const CriticalPointsPage = () => {
                         <p className="mt-3 text-muted">Loading data...</p>
                     </div>
                 ) : (
-                    // The main InteractionsFeedback component now receives paginated data
                     <InteractionsFeedback data={paginatedData} canEdit={canEdit} onUpdate={fetchData} />
                 )}
 
