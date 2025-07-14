@@ -217,6 +217,7 @@ const CriticalPointsPage = () => {
         link.setAttribute("download", `Interactions_and_Feedback_Export.csv`);
         document.body.appendChild(link);
         link.click();
+        
         document.body.removeChild(link);
     };
 
@@ -226,26 +227,31 @@ const CriticalPointsPage = () => {
             <Card className="shadow-sm">
                 <Card.Header as="div" className="py-2 px-3 bg-light">
                     <div className="d-flex justify-content-between align-items-center">
-                        <div>
+                        {/* Title on the left */}
+                        <h5 className="mb-0">Interactions & Feedback</h5>
+
+                        {/* Controls on the right */}
+                        <div className="d-flex align-items-center gap-2">
                             {/* Search Input Group */}
-                            <InputGroup size="sm" style={{ maxWidth: '350px' }}>
+                            <InputGroup size="sm" style={{ width: '250px' }}>
                                 <Form.Control
                                     type="text"
-                                    placeholder="Search by company, role, interaction..."
+                                    placeholder="Search by company, role..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
-                                {searchTerm && 
+                                {searchTerm &&
                                     <Button variant="outline-secondary" onClick={() => setSearchTerm('')} title="Clear search">
                                         <i className="fas fa-times"></i>
                                     </Button>
                                 }
                             </InputGroup>
+
+                            {/* Export Button */}
+                            <Button variant="outline-success" size="sm" onClick={handleExportCSV}>
+                                <i className="fas fa-file-csv me-2"></i>Export
+                            </Button>
                         </div>
-                        {/* Export Button */}
-                        <Button variant="outline-success" size="sm" onClick={handleExportCSV}>
-                            <i className="fas fa-file-csv me-2"></i>Export
-                        </Button>
                     </div>
                 </Card.Header>
                  
