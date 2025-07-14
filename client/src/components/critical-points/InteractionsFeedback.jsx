@@ -822,7 +822,7 @@ const InteractionsFeedback = ({ data, canEdit, onShowRecordModal, onShowLogModal
                                                     </div>
                                                 ))
                                             ) : (<div className="text-muted fst-italic p-2 text-center">No interactions.</div>)}
-                                            {canEdit && <Button variant="link" size="sm" className="p-1 mt-2 w-100" onClick={() => onShowLogModal(item)}>+ Add Interaction</Button>}
+                                            {canEdit && <Button variant="link" size="sm" className="p-1 mt-2 w-100" onClick={() => onShowLogModal(item)}>+ Add</Button>}
                                         </div>
                                     </td>
                                     {canEdit && (
