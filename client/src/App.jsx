@@ -97,8 +97,14 @@ const AppRoutes = () => {
     <div className="flex h-screen bg-gray-100">
       <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} setPageLoading={setPageLoading} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* START: Conditionally render the TopBar, excluding critical points page */}
-        {(location.pathname !== '/internships-tracker' && location.pathname !== '/students-tracker' && location.pathname !== '/critical-points') && <TopBar toggleSidebar={toggleSidebar} />}
+        {/* START: Conditionally render the TopBar, excluding specified pages */}
+        {(
+            location.pathname !== '/internships-tracker' && 
+            location.pathname !== '/students-tracker' && 
+            location.pathname !== '/critical-points' &&
+            location.pathname !== '/overall-hub' &&
+            !location.pathname.startsWith('/post-internships')
+        ) && <TopBar toggleSidebar={toggleSidebar} />}
         {/* END: Conditionally render the TopBar */}
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 md:p-6 relative">
           {pageLoading && <PageLoader />}
@@ -107,10 +113,8 @@ const AppRoutes = () => {
               <Route path="/" element={getDashboardForRole()} />
               <Route path="/profile" element={<ProtectedRoute element={<ProfileSettings setPageLoading={setPageLoading} />} />} />
               <Route path="/internships-tracker" element={<ProtectedRoute element={<InternshipsTracker user={user} />} requiredRoles={['admin', 'manager']} />} />
-              {/* --- START MODIFICATION: Update access for students-tracker and overall-hub --- */}
               <Route path="/students-tracker" element={<ProtectedRoute element={<StudentsTrackerPage />} requiredRoles={['admin', 'manager', 'instructor', 'crm']} />} />
               <Route path="/overall-hub" element={<ProtectedRoute element={<OverallHubPage />} requiredRoles={['admin', 'manager', 'instructor', 'crm']} />} />
-              {/* --- END MODIFICATION --- */}
               <Route path="/critical-points" element={<ProtectedRoute element={<CriticalPointsPage />} requiredRoles={['admin', 'manager', 'crm', 'instructor']} />} />
               <Route path="/post-internships" element={canAccessPostInternships ? <ProtectedRoute element={<PostInternships />} /> : <Navigate to="/not-authorized" replace />} />
               <Route path="/post-internships/:studentId/tasks" element={canAccessPostInternships ? <ProtectedRoute element={<StudentTaskTrackerPage />} /> : <Navigate to="/not-authorized" replace />} />
