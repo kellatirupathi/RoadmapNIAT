@@ -781,9 +781,7 @@
 
 // client/src/pages/StudentsTrackerPage.jsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-// --- START MODIFICATION: Imported Dropdown component ---
 import { Nav, Card, Alert, Spinner, Button, Modal, Form, Table, InputGroup, Dropdown } from 'react-bootstrap';
-// --- END MODIFICATION ---
 import { Navigate } from 'react-router-dom';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
@@ -793,7 +791,6 @@ import Papa from 'papaparse';
 import CompanyInteractionAdminView from '../components/students-tracker/CompanyInteractionAdminView.jsx';
 import useAuth from '../hooks/useAuth.js';
 
-// --- START MODIFICATION: Added ActionMenuToggle component for the dropdown ---
 const ActionMenuToggle = React.forwardRef(({ onClick }, ref) => (
     <Button
       variant="link"
@@ -809,7 +806,6 @@ const ActionMenuToggle = React.forwardRef(({ onClick }, ref) => (
     </Button>
 ));
 ActionMenuToggle.displayName = 'ActionMenuToggle';
-// --- END MODIFICATION ---
 
 const StudentsTrackerPage = () => {
     const { user } = useAuth();
@@ -1108,6 +1104,7 @@ const StudentsTrackerPage = () => {
         return activeTab === 'aseRatings' ? 'ase-ratings-modal' : '';
     };
 
+    // --- START MODIFICATION: Add interactionRemarks to truncatable columns ---
     const renderTruncatableContent = (text) => {
         const maxLength = 60;
         if (typeof text !== 'string' || text.length <= maxLength) {
@@ -1122,6 +1119,7 @@ const StudentsTrackerPage = () => {
             </span>
         );
     };
+    // --- END MODIFICATION ---
     
     const getFieldName = (fieldKey) => {
         const columnConfig = currentSheetConfig?.columns.find(c => c.field === fieldKey);
@@ -1270,7 +1268,9 @@ const StudentsTrackerPage = () => {
                                                                         ) : <span className="text-muted"></span>;
                                                                     }
                                                                     
-                                                                    const truncatableColumns = ['remarks', 'studentQuestion', 'studentAnswer'];
+                                                                    // --- START MODIFICATION ---
+                                                                    const truncatableColumns = ['remarks', 'studentQuestion', 'studentAnswer', 'interactionRemarks'];
+                                                                    // --- END MODIFICATION ---
                                                                     if (truncatableColumns.includes(col.field)) {
                                                                         return renderTruncatableContent(row[col.field]);
                                                                     }
@@ -1287,7 +1287,6 @@ const StudentsTrackerPage = () => {
                                                                 })()}
                                                             </td>
                                                         ))}
-                                                        {/* --- START MODIFICATION: Replaced buttons with Dropdown menu --- */}
                                                         {canEdit && (
                                                             <td className="text-center">
                                                                 <Dropdown>
@@ -1303,7 +1302,6 @@ const StudentsTrackerPage = () => {
                                                                 </Dropdown>
                                                             </td>
                                                         )}
-                                                        {/* --- END MODIFICATION --- */}
                                                     </tr>
                                                 ))
                                             )}
