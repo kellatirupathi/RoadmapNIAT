@@ -711,8 +711,7 @@
 
 
 
-// File Path: src/pages/CompanywiseStudentsProgress.jsx
-
+// client/src/pages/CompanywiseStudentsProgress.jsx
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, Form, Button, Row, Col, InputGroup, Spinner, Alert, Table, Modal, Dropdown } from 'react-bootstrap';
 import DatePicker from 'react-datepicker';
@@ -1141,6 +1140,7 @@ const CompanywiseStudentsProgress = ({ user }) => {
     
     const finalTableColumns = useMemo(() => {
         const base = [
+            { header: 'S.No', field: 'serialNumber' },
             { header: 'Company Name', field: 'companyName' }, { header: 'Role Name', field: 'roleName' }, 
             { header: 'Role Deadline', field: 'roleDeadline', type: 'date' }, { header: 'Offers', field: 'noOfOffers', type: 'number' }, 
             { header: 'NIAT ID', field: 'niatId' }, { header: 'Student Name', field: 'studentName' }
@@ -1161,7 +1161,7 @@ const CompanywiseStudentsProgress = ({ user }) => {
     const tableData = useMemo(() => {
         if (!savedData) return [];
         
-        return savedData.map(item => {
+        return savedData.map((item, index) => {
             let status = item.completionStatus || 'In Progress';
             if (item.techAssignments && item.techAssignments.length > 0) {
                 const allDone = item.techAssignments.every(a => techStackProgressMap.get(a.techStackName) >= 100);
@@ -1169,6 +1169,7 @@ const CompanywiseStudentsProgress = ({ user }) => {
             }
             
             const flatItem = {
+                serialNumber: index + 1,
                 _id: item._id, companyName: item.companyName, roleName: item.roleName, 
                 roleDeadline: item.roleDeadline, noOfOffers: item.noOfOffers, 
                 niatId: item.niatId, studentName: item.studentName, completionStatus: status,
