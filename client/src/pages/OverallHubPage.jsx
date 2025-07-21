@@ -674,7 +674,7 @@ const OverallHubPage = () => {
                                                 {actionLoading[rowKey] ? <Spinner size="sm" /> : (
                                                     canEdit ? (
                                                         <Form.Select size="sm" value={currentStatus} onChange={(e) => handleOverallStatusChange(item, e.target.value)} className={getStatusColorClass(currentStatus)}>
-                                                            <option value="">- Select -</option>
+                                                            <option value="">Select</option>
                                                             <option value="Hired">Hired</option>
                                                             <option value="Hold">Hold</option>
                                                             <option value="Reject">Reject</option>
