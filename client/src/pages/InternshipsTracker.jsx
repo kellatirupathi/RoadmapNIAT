@@ -1893,9 +1893,7 @@
 // export default InternshipsTracker;
 
 
-
-// File Path: src/pages/InternshipsTracker.jsx
-
+// client/src/pages/InternshipsTracker.jsx
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, Nav, Spinner, Alert, Button, Modal, Table, Form, Row, Col, InputGroup, Dropdown } from 'react-bootstrap';
 import DatePicker from 'react-datepicker';
@@ -3157,11 +3155,8 @@ const InternshipsTracker = () => {
             return false;
         });
     }, [sheetData, searchTerm, activeSheet]);
-
-    // --- REMOVED PAGINATION LOGIC ---
     
-    // Render tech stack mapping display row
-    const renderTechStackMapping = (company, mapping, index) => {
+    const renderTechStackMapping = (company, mapping, index, companyIndex) => {
         const isFirstMapping = index === 0;
         
         const techStacksDisplay = (mapping.techProgress || []).map(tp => {
@@ -3179,6 +3174,7 @@ const InternshipsTracker = () => {
             <tr key={`${company._id}-mapping-${index}`} className={!isFirstMapping ? "bg-light" : ""}>
                 {isFirstMapping && (
                     <>
+                        <td rowSpan={company.mappings?.length || 1}>{companyIndex + 1}</td>
                         <td rowSpan={company.mappings?.length || 1}>{company.companies}</td>
                         <td rowSpan={company.mappings?.length || 1}>{company.roles}</td>
                         <td rowSpan={company.mappings?.length || 1}>{company.internshipOffers}</td>
@@ -3298,6 +3294,7 @@ const InternshipsTracker = () => {
                                <Table striped bordered hover size="sm" className="align-middle">
                                    <thead className="table-light">
                                        <tr>
+                                           <th style={{width: '50px'}}>S.No</th>
                                            <th>Companies</th>
                                            <th>Roles</th>
                                            <th>Offers</th>
@@ -3319,19 +3316,16 @@ const InternshipsTracker = () => {
                                    <tbody>
                                        {filteredData.length === 0 && !loading && (
                                            <tr>
-                                               <td colSpan={user.role === 'admin' ? 16 : 15} className="text-center text-muted py-4">
+                                               <td colSpan={user.role === 'admin' ? 17 : 16} className="text-center text-muted py-4">
                                                    No data.
                                                </td>
                                            </tr>
                                        )}
                                        
-                                       {filteredData.map(company => {
-                                           if (company.mappings && company.mappings.length > 0) {
-                                               return company.mappings.map((mapping, idx) => 
-                                                   renderTechStackMapping(company, mapping, idx)
-                                               );
-                                           } else {
-                                               const legacyMapping = {
+                                       {filteredData.map((company, companyIndex) => {
+                                           const mappings = (company.mappings && company.mappings.length > 0)
+                                               ? company.mappings
+                                               : [{
                                                    techProgress: company.techProgress || [],
                                                    mappingOffers: 0,
                                                    technologies: '',
@@ -3340,16 +3334,15 @@ const InternshipsTracker = () => {
                                                    internshipDuration: company.internshipDuration || '',
                                                    stipendPerMonth: company.stipendPerMonth || '',
                                                    location: company.location || ''
-                                               };
-                                               
-                                               return renderTechStackMapping(company, legacyMapping, 0);
-                                           }
+                                               }];
+                                            return mappings.map((mapping, mappingIndex) => 
+                                                renderTechStackMapping(company, mapping, mappingIndex, companyIndex)
+                                            );
                                        })}
                                    </tbody>
                                </Table>
                            </div>
                        </Card.Body>
-                       {/* --- REMOVED: Card.Footer with pagination --- */}
                    </Card>
                 </div>
            );
@@ -3365,7 +3358,6 @@ const InternshipsTracker = () => {
                                <EditableTable columns={columns} data={filteredData} onSave={user.role === 'admin' ? handleSaveRow : undefined} onDelete={user.role === 'admin' ? openDeleteRowModal : undefined} isLoading={actionLoading} allowAdd={false} activeSheet={activeSheet} />
                            </div>
                        </Card.Body>
-                        {/* --- REMOVED: Card.Footer with pagination --- */}
                    </Card>
                 </div>
            );
