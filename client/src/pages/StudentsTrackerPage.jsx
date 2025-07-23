@@ -2351,8 +2351,6 @@
 // export default StudentsTrackerPage;
 
 
-
-
 // client/src/pages/StudentsTrackerPage.jsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Nav, Card, Alert, Spinner, Button, Modal, Form, Table, InputGroup, Dropdown } from 'react-bootstrap';
@@ -2517,7 +2515,7 @@ const StudentsTrackerPage = () => {
         try {
             await studentsTrackerService[activeTab].remove(recordId);
             fetchDataForTab(activeTab); 
-        } catch (err) => {
+        } catch (err) {
             setError('Failed to delete entry.');
         } finally {
             setActionLoading(false);
@@ -2534,7 +2532,6 @@ const StudentsTrackerPage = () => {
     const handleConfirmDelete = () => {
         if (recordToDelete) {
             handleDelete(recordToDelete._id);
-_id);
         }
     };
     
